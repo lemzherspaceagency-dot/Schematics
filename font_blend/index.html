@@ -84,7 +84,7 @@
 <div class="canvases">
   <figure><canvas id="cA" width="300" height="300"></canvas><figcaption>1-as šriftas</figcaption></figure>
   <figure><canvas id="cB" width="300" height="300"></canvas><figcaption>2-as šriftas</figcaption></figure>
-  <figure><canvas id="cMix" width="300" height="300"></canvas><figcaption>Mišinys</figcaption></figure>
+  <figure><canvas id="cMix" width="300" height="300"></canvas><figcaption>Mišinys (raudona = 1-as, mėlyna = 2-as, violetinė = persidengimas)</figcaption></figure>
 </div>
 
 <script>
@@ -212,47 +212,6 @@ function drawSingle(font, canvas) {
   paintMask(canvas, mask, size);
 }
 
-// Two-pass chamfer distance transform (approximate Euclidean, good enough visually)
-function distanceTransform(mask, size) {
-  const INF = 1e6;
-  const dist = new Float32Array(size * size).fill(INF);
-  for (let i = 0; i < size * size; i++) if (mask[i]) dist[i] = 0;
-
-  const at = (x, y) => dist[y * size + x];
-  const set = (x, y, v) => { if (v < dist[y * size + x]) dist[y * size + x] = v; };
-  const d1 = 1, d2 = Math.SQRT2;
-
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      if (x > 0) set(x, y, at(x - 1, y) + d1);
-      if (y > 0) set(x, y, at(x, y - 1) + d1);
-      if (x > 0 && y > 0) set(x, y, at(x - 1, y - 1) + d2);
-      if (x < size - 1 && y > 0) set(x, y, at(x + 1, y - 1) + d2);
-    }
-  }
-  for (let y = size - 1; y >= 0; y--) {
-    for (let x = size - 1; x >= 0; x--) {
-      if (x < size - 1) set(x, y, at(x + 1, y) + d1);
-      if (y < size - 1) set(x, y, at(x, y + 1) + d1);
-      if (x < size - 1 && y < size - 1) set(x, y, at(x + 1, y + 1) + d2);
-      if (x > 0 && y < size - 1) set(x, y, at(x - 1, y + 1) + d2);
-    }
-  }
-  return dist;
-}
-
-function signedDistance(mask, size) {
-  const inv = new Uint8Array(size * size);
-  for (let i = 0; i < size * size; i++) inv[i] = mask[i] ? 0 : 1;
-  const distOutside = distanceTransform(mask, size); // 0 inside, >0 outside
-  const distInside = distanceTransform(inv, size);   // 0 outside, >0 inside
-  const sdf = new Float32Array(size * size);
-  for (let i = 0; i < size * size; i++) {
-    sdf[i] = mask[i] ? -distInside[i] : distOutside[i];
-  }
-  return sdf;
-}
-
 function paintMask(canvas, mask, size) {
   const ctx = canvas.getContext('2d');
   const img = ctx.createImageData(size, size);
@@ -264,14 +223,32 @@ function paintMask(canvas, mask, size) {
   ctx.putImageData(img, 0, 0);
 }
 
-function paintBlend(canvas, sdf, size) {
+// Double-exposure overlay: font A tinted warm, font B tinted cool, overlap reads as ink-mixed.
+// This stays legible for any pair of fonts, unlike a pixel morph which only works when both
+// glyphs share similar structure.
+const COLOR_A = [196, 90, 60];   // warm terracotta
+const COLOR_B = [60, 110, 196];  // cool blue
+
+function paintOverlay(canvas, maskA, maskB, size, t) {
   const ctx = canvas.getContext('2d');
   const img = ctx.createImageData(size, size);
+  const opA = (1 - t) * 0.85 + 0.15;
+  const opB = t * 0.85 + 0.15;
   for (let i = 0; i < size * size; i++) {
-    // smooth edge over ~1.2px for anti-aliasing
-    const t = Math.max(0, Math.min(1, 0.5 - sdf[i] / 1.2));
-    const v = Math.round(255 - t * 235);
-    img.data[i * 4] = v; img.data[i * 4 + 1] = v; img.data[i * 4 + 2] = v;
+    let r = 255, g = 255, b = 255;
+    if (maskA[i]) {
+      r = r * (1 - opA) + COLOR_A[0] * opA;
+      g = g * (1 - opA) + COLOR_A[1] * opA;
+      b = b * (1 - opA) + COLOR_A[2] * opA;
+    }
+    if (maskB[i]) {
+      r = r * (1 - opB) + COLOR_B[0] * opB;
+      g = g * (1 - opB) + COLOR_B[1] * opB;
+      b = b * (1 - opB) + COLOR_B[2] * opB;
+    }
+    img.data[i * 4] = Math.round(r);
+    img.data[i * 4 + 1] = Math.round(g);
+    img.data[i * 4 + 2] = Math.round(b);
     img.data[i * 4 + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
@@ -288,13 +265,8 @@ function render() {
     paintMask(document.getElementById('cA'), maskA, size);
     paintMask(document.getElementById('cB'), maskB, size);
 
-    const sdfA = signedDistance(maskA, size);
-    const sdfB = signedDistance(maskB, size);
     const t = blendSlider.value / 100;
-    const sdfMix = new Float32Array(size * size);
-    for (let i = 0; i < size * size; i++) sdfMix[i] = sdfA[i] * (1 - t) + sdfB[i] * t;
-
-    paintBlend(document.getElementById('cMix'), sdfMix, size);
+    paintOverlay(document.getElementById('cMix'), maskA, maskB, size, t);
     setStatus('Paruošta.');
   });
 }
