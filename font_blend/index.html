@@ -87,6 +87,13 @@
   <figure><canvas id="cMix" width="300" height="300"></canvas><figcaption>Mišinys (raudona = 1-as, mėlyna = 2-as, violetinė = persidengimas)</figcaption></figure>
 </div>
 
+<div class="card">
+  <label>Šrifto failas</label>
+  <p class="sub" style="margin:0 0 .75rem;">Kiekviena šio žodžio raidė bus sulydyta į vieną formą ir supakuota į tikrą .otf šrifto failą, kurį gali įsidiegti.</p>
+  <button id="exportBtn" disabled>Atsisiųsti šriftą (.otf)</button>
+  <div id="exportStatus" style="font-size:.85rem;opacity:.75;margin-top:.5rem;"></div>
+</div>
+
 <script>
 const state = { fontA: null, fontB: null };
 const status = document.getElementById('status');
@@ -269,6 +276,7 @@ function render() {
     paintOverlay(document.getElementById('cMix'), maskA, maskB, size, t);
     setStatus('Paruošta.');
   });
+  exportBtn.disabled = false;
 }
 
 blendSlider.addEventListener('input', () => {
@@ -277,6 +285,211 @@ blendSlider.addEventListener('input', () => {
 });
 letterInput.addEventListener('input', render);
 renderBtn.addEventListener('click', render);
+
+// ---- Font export: merge each character's outline into one shape and pack a real .otf ----
+
+const exportBtn = document.getElementById('exportBtn');
+const exportStatus = document.getElementById('exportStatus');
+
+// Two-pass chamfer distance transform (approximate Euclidean, good enough for a merged silhouette)
+function distanceTransform(mask, size) {
+  const INF = 1e6;
+  const dist = new Float32Array(size * size).fill(INF);
+  for (let i = 0; i < size * size; i++) if (mask[i]) dist[i] = 0;
+  const at = (x, y) => dist[y * size + x];
+  const set = (x, y, v) => { if (v < dist[y * size + x]) dist[y * size + x] = v; };
+  const d1 = 1, d2 = Math.SQRT2;
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    if (x > 0) set(x, y, at(x - 1, y) + d1);
+    if (y > 0) set(x, y, at(x, y - 1) + d1);
+    if (x > 0 && y > 0) set(x, y, at(x - 1, y - 1) + d2);
+    if (x < size - 1 && y > 0) set(x, y, at(x + 1, y - 1) + d2);
+  }
+  for (let y = size - 1; y >= 0; y--) for (let x = size - 1; x >= 0; x--) {
+    if (x < size - 1) set(x, y, at(x + 1, y) + d1);
+    if (y < size - 1) set(x, y, at(x, y + 1) + d1);
+    if (x < size - 1 && y < size - 1) set(x, y, at(x + 1, y + 1) + d2);
+    if (x > 0 && y < size - 1) set(x, y, at(x - 1, y + 1) + d2);
+  }
+  return dist;
+}
+
+function signedDistance(mask, size) {
+  const inv = new Uint8Array(size * size);
+  for (let i = 0; i < size * size; i++) inv[i] = mask[i] ? 0 : 1;
+  const distOutside = distanceTransform(mask, size);
+  const distInside = distanceTransform(inv, size);
+  const sdf = new Float32Array(size * size);
+  for (let i = 0; i < size * size; i++) sdf[i] = mask[i] ? -distInside[i] : distOutside[i];
+  return sdf;
+}
+
+function mergedMask(maskA, maskB, size, t) {
+  const sdfA = signedDistance(maskA, size);
+  const sdfB = signedDistance(maskB, size);
+  const out = new Uint8Array(size * size);
+  for (let i = 0; i < size * size; i++) {
+    out[i] = (sdfA[i] * (1 - t) + sdfB[i] * t) <= 0 ? 1 : 0;
+  }
+  return out;
+}
+
+// Marching squares: trace a binary mask into closed polygon contours. Filled regions end
+// up with consistent winding (outer boundaries vs. holes get opposite signed area), which
+// is exactly what a font glyph outline needs.
+function traceContours(mask, size) {
+  const get = (x, y) => (x < 0 || y < 0 || x >= size || y >= size) ? 0 : mask[y * size + x];
+  const W = size - 1, H = size - 1;
+  const segs = [];
+  const T = (x, y) => [x + 0.5, y], R = (x, y) => [x + 1, y + 0.5];
+  const B = (x, y) => [x + 0.5, y + 1], L = (x, y) => [x, y + 0.5];
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const tl = get(x, y), tr = get(x + 1, y), br = get(x + 1, y + 1), bl = get(x, y + 1);
+      const state = tl * 8 + tr * 4 + br * 2 + bl * 1;
+      switch (state) {
+        case 1: segs.push([L(x, y), B(x, y)]); break;
+        case 2: segs.push([B(x, y), R(x, y)]); break;
+        case 3: segs.push([L(x, y), R(x, y)]); break;
+        case 4: segs.push([R(x, y), T(x, y)]); break;
+        case 5: segs.push([L(x, y), T(x, y)]); segs.push([R(x, y), B(x, y)]); break;
+        case 6: segs.push([B(x, y), T(x, y)]); break;
+        case 7: segs.push([L(x, y), T(x, y)]); break;
+        case 8: segs.push([T(x, y), L(x, y)]); break;
+        case 9: segs.push([T(x, y), B(x, y)]); break;
+        case 10: segs.push([T(x, y), R(x, y)]); segs.push([B(x, y), L(x, y)]); break;
+        case 11: segs.push([T(x, y), R(x, y)]); break;
+        case 12: segs.push([R(x, y), L(x, y)]); break;
+        case 13: segs.push([R(x, y), B(x, y)]); break;
+        case 14: segs.push([B(x, y), L(x, y)]); break;
+      }
+    }
+  }
+  const key = (p) => p[0].toFixed(3) + ',' + p[1].toFixed(3);
+  const startMap = new Map();
+  segs.forEach((s, i) => startMap.set(key(s[0]), i));
+  const used = new Array(segs.length).fill(false);
+  const contours = [];
+  for (let i = 0; i < segs.length; i++) {
+    if (used[i]) continue;
+    const poly = [];
+    let cur = i, guard = 0;
+    while (!used[cur] && guard < segs.length + 5) {
+      used[cur] = true;
+      poly.push(segs[cur][0]);
+      const nextKey = key(segs[cur][1]);
+      guard++;
+      if (nextKey === key(poly[0])) break;
+      const nextIdx = startMap.get(nextKey);
+      if (nextIdx === undefined) break;
+      cur = nextIdx;
+    }
+    if (poly.length >= 3) contours.push(poly);
+  }
+  return contours;
+}
+
+function pointLineDist(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(px - x1, py - y1);
+  let t = ((px - x1) * dx + (py - y1) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+}
+
+function simplifyPoly(points, epsilon) {
+  if (points.length < 3) return points;
+  function dp(pts) {
+    if (pts.length < 3) return pts;
+    let maxDist = 0, index = 0;
+    const [x1, y1] = pts[0], [x2, y2] = pts[pts.length - 1];
+    for (let i = 1; i < pts.length - 1; i++) {
+      const [x0, y0] = pts[i];
+      const dist = pointLineDist(x0, y0, x1, y1, x2, y2);
+      if (dist > maxDist) { maxDist = dist; index = i; }
+    }
+    if (maxDist > epsilon) {
+      const left = dp(pts.slice(0, index + 1));
+      const right = dp(pts.slice(index));
+      return left.slice(0, -1).concat(right);
+    }
+    return [pts[0], pts[pts.length - 1]];
+  }
+  return dp(points);
+}
+
+function buildGlyphPath(contours, size, unitsPerEm) {
+  const path = new opentype.Path();
+  const scale = unitsPerEm / size;
+  for (const contour of contours) {
+    contour.forEach(([x, y], i) => {
+      const fx = x * scale;
+      const fy = unitsPerEm - y * scale;
+      if (i === 0) path.moveTo(fx, fy); else path.lineTo(fx, fy);
+    });
+    path.close();
+  }
+  return path;
+}
+
+async function buildBlendedFont() {
+  const text = letterInput.value || 'A';
+  const chars = [...new Set(text.split(''))].filter((c) => c !== ' ');
+  const size = 400;
+  const unitsPerEm = 1000;
+  const t = blendSlider.value / 100;
+
+  const notdef = new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: unitsPerEm * 0.6, path: new opentype.Path() });
+  const space = new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: unitsPerEm * 0.5, path: new opentype.Path() });
+  const glyphs = [notdef, space];
+
+  for (const ch of chars) {
+    const maskA = glyphMaskForFont(state.fontA, ch, size);
+    const maskB = glyphMaskForFont(state.fontB, ch, size);
+    const merged = mergedMask(maskA, maskB, size, t);
+    const contours = traceContours(merged, size).map((c) => simplifyPoly(c, 1.5));
+    const path = buildGlyphPath(contours, size, unitsPerEm);
+    glyphs.push(new opentype.Glyph({
+      name: 'uni' + ch.codePointAt(0).toString(16).toUpperCase(),
+      unicode: ch.codePointAt(0),
+      advanceWidth: unitsPerEm,
+      path,
+    }));
+  }
+
+  return new opentype.Font({
+    familyName: 'SriftuMisinys',
+    styleName: 'Regular',
+    unitsPerEm,
+    ascender: unitsPerEm * 0.8,
+    descender: -unitsPerEm * 0.2,
+    glyphs,
+  });
+}
+
+exportBtn.addEventListener('click', async () => {
+  if (!state.fontA || !state.fontB) return;
+  exportBtn.disabled = true;
+  exportStatus.textContent = 'Kuriamas šriftas...';
+  try {
+    const font = await buildBlendedFont();
+    const buffer = font.toArrayBuffer();
+    const blob = new Blob([buffer], { type: 'font/otf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sriftu-misinys.otf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    exportStatus.textContent = 'Atsisiųsta: sriftu-misinys.otf';
+  } catch (err) {
+    exportStatus.textContent = 'Klaida: ' + err.message;
+  }
+  exportBtn.disabled = false;
+});
 </script>
 
 </body>
