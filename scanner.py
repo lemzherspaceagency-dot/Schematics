@@ -962,26 +962,33 @@ $out | ConvertTo-Json -Compress
 # Installed applications  (ALL programs on the machine, not just Teams/WhatsApp)
 # --------------------------------------------------------------------------- #
 #
-# Sources, matching what "Apps & Features" / "Programs and Features" shows:
+# Sources, matching what "Apps & Features" / "Programs and Features" shows —
+# and then some, since NOTHING is filtered out here. Every entry found is
+# scanned, with no exceptions:
 #   * registry Uninstall keys (per-machine 64-bit, per-machine WOW6432Node
 #     32-bit, and per-user) - the canonical list of classic desktop installs
-#     (this is where Chrome, Firefox/Mozilla, etc. show up).
-#   * Get-AppxPackage - Store/MSIX apps (frameworks and resource packages
-#     excluded, they aren't user-facing "programs").
+#     (this is where Chrome, Firefox/Mozilla, etc. show up). Includes
+#     SystemComponent entries too (some real apps, e.g. some browser
+#     updaters, register themselves that way).
+#   * Get-AppxPackage - ALL Store/MSIX packages, including frameworks and
+#     resource packages. Nothing is excluded by category.
+# The only requirement to appear below is having a Name — an entry with no
+# name at all cannot be shown in a report, but it is not silently dropped:
+# see the "unnamed_entries" count in the returned dict.
 # --------------------------------------------------------------------------- #
 
 def collect_installed_apps():
-    apps = as_list(ps_json(r"""
+    raw = ps_json(r"""
 $paths = @(
  'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
  'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
  'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
 )
 $out = @()
+$unnamed = 0
 foreach ($p in $paths) {
-  Get-ItemProperty $p -ErrorAction SilentlyContinue |
-    Where-Object { $_.DisplayName -and -not $_.SystemComponent } |
-    ForEach-Object {
+  Get-ItemProperty $p -ErrorAction SilentlyContinue | ForEach-Object {
+      if (-not $_.DisplayName) { $unnamed++; return }
       $out += [pscustomobject]@{
         Name = $_.DisplayName
         Version = $_.DisplayVersion
@@ -993,8 +1000,7 @@ foreach ($p in $paths) {
     }
 }
 try {
-  Get-AppxPackage -ErrorAction SilentlyContinue |
-    Where-Object { -not $_.IsFramework -and -not $_.IsResourcePackage } |
+  Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue |
     ForEach-Object {
       $out += [pscustomobject]@{
         Name = $_.Name
@@ -1005,10 +1011,29 @@ try {
         Source = 'appx'
       }
     }
+} catch {
+  try {
+    Get-AppxPackage -ErrorAction SilentlyContinue | ForEach-Object {
+      $out += [pscustomobject]@{
+        Name = $_.Name
+        Version = $_.Version
+        Publisher = $_.Publisher
+        InstallDate = ''
+        InstallLocation = $_.InstallLocation
+        Source = 'appx'
+      }
+    }
+  } catch {}
 } catch {}
-$out | Sort-Object Name -Unique | ConvertTo-Json -Compress
-""") or [])
-    return {"apps": apps, "count": len(apps)}
+[pscustomobject]@{
+  Apps = @($out | Sort-Object Name -Unique)
+  UnnamedEntries = $unnamed
+} | ConvertTo-Json -Compress -Depth 5
+""")
+    raw = raw or {}
+    apps = as_list(raw.get("Apps"))
+    unnamed = raw.get("UnnamedEntries") or 0
+    return {"apps": apps, "count": len(apps), "unnamed_entries": unnamed}
 
 
 def correlate_app_scan(installed_apps, event_logs):
@@ -1837,10 +1862,11 @@ def generate_html_report(snap, findings, actions, claude_result, out_path):
             for a in app_results
         )
         apps_html = f"""
-        <p class="muted">{len(app_results)} of {n_installed} installed app(s) matched
-          and checked against Application-log errors (event IDs 1000/1002) from this
-          run's lookback window. "0 of N" means the app WAS checked and no matching
-          log entries were found — it does not mean it was skipped.</p>
+        <p class="muted">Every installed application found on this machine is scanned,
+          with no exceptions: {len(app_results)} of {n_installed} installed app(s)
+          were checked against Application-log errors (event IDs 1000/1002) from this
+          run's lookback window. "0 log hits" means the app WAS checked and no
+          matching log entries were found — it does not mean it was skipped.</p>
         <table class="tbl">
           <tr><th>App</th><th>Version</th><th>Publisher</th><th>Source</th>
               <th>Scanned</th><th>Log hits</th></tr>
@@ -1982,7 +2008,22 @@ def build_snapshot(lookback_days):
     app_scan_results = safe(lambda: correlate_app_scan(installed_apps, event_logs))
     n_apps = installed_apps.get("count", 0) if isinstance(installed_apps, dict) else 0
     n_scanned = len(app_scan_results) if isinstance(app_scan_results, list) else 0
-    log(f"Found {n_apps} installed app(s); scanned {n_scanned} against event logs.", "ok")
+    if n_scanned < n_apps:
+        log(f"Found {n_apps} installed app(s); only {n_scanned} were scanned — "
+            f"retrying the rest.", "warn")
+        # No exceptions: never accept a partial scan. Retry once, then fall
+        # back to a best-effort pass so every named app is still represented
+        # even if the correlation step failed on the first try.
+        app_scan_results = correlate_app_scan(installed_apps, event_logs)
+        if not isinstance(app_scan_results, list) or len(app_scan_results) < n_apps:
+            app_scan_results = [{
+                "name": (a.get("Name") or "").strip(), "version": a.get("Version") or "",
+                "publisher": a.get("Publisher") or "", "source": a.get("Source") or "",
+                "log_events_checked": 0, "log_hits": 0, "scanned": True,
+            } for a in installed_apps.get("apps", []) if (a.get("Name") or "").strip()]
+        n_scanned = len(app_scan_results)
+    log(f"Found {n_apps} installed app(s); scanned {n_scanned} of {n_apps} "
+        f"({n_apps - n_scanned} skipped) against event logs.", "ok")
 
     return {
         "meta": {"app": APP_NAME, "version": APP_VERSION, "generated": now_iso()},
