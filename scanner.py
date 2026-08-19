@@ -999,32 +999,22 @@ foreach ($p in $paths) {
       }
     }
 }
+$appxItems = $null
 try {
-  Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue |
-    ForEach-Object {
-      $out += [pscustomobject]@{
-        Name = $_.Name
-        Version = $_.Version
-        Publisher = $_.Publisher
-        InstallDate = ''
-        InstallLocation = $_.InstallLocation
-        Source = 'appx'
-      }
-    }
+  $appxItems = Get-AppxPackage -AllUsers -ErrorAction Stop
 } catch {
-  try {
-    Get-AppxPackage -ErrorAction SilentlyContinue | ForEach-Object {
-      $out += [pscustomobject]@{
-        Name = $_.Name
-        Version = $_.Version
-        Publisher = $_.Publisher
-        InstallDate = ''
-        InstallLocation = $_.InstallLocation
-        Source = 'appx'
-      }
-    }
-  } catch {}
-} catch {}
+  try { $appxItems = Get-AppxPackage -ErrorAction SilentlyContinue } catch {}
+}
+$appxItems | ForEach-Object {
+  $out += [pscustomobject]@{
+    Name = $_.Name
+    Version = $_.Version
+    Publisher = $_.Publisher
+    InstallDate = ''
+    InstallLocation = $_.InstallLocation
+    Source = 'appx'
+  }
+}
 [pscustomobject]@{
   Apps = @($out | Sort-Object Name -Unique)
   UnnamedEntries = $unnamed
