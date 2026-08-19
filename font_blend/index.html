@@ -97,31 +97,54 @@ const letterInput = document.getElementById('letter');
 
 function setStatus(msg) { status.textContent = msg; }
 
-// Curated list of Google Fonts covering a range of handwriting / display / classic styles.
+// Curated list of Google Fonts (raw TTF files from the google/fonts repo — opentype.js
+// can't decode WOFF2, which is all the fonts.googleapis.com CSS endpoint serves to browsers).
+const RAW_BASE = 'https://raw.githubusercontent.com/google/fonts/main/';
 const FONT_LIST = [
-  'Caveat', 'Dancing Script', 'Pacifico', 'Shadows Into Light', 'Indie Flower',
-  'Amatic SC', 'Satisfy', 'Great Vibes', 'Kalam', 'Permanent Marker',
-  'Homemade Apple', 'Reenie Beanie', 'Architects Daughter', 'Cedarville Cursive',
-  'Sacramento', 'Playfair Display', 'Merriweather', 'Roboto', 'Montserrat',
-  'Bebas Neue', 'Oswald', 'Lobster', 'Cinzel', 'Abril Fatface'
+  ['Caveat', 'ofl/caveat/Caveat%5Bwght%5D.ttf'],
+  ['Dancing Script', 'ofl/dancingscript/DancingScript%5Bwght%5D.ttf'],
+  ['Pacifico', 'ofl/pacifico/Pacifico-Regular.ttf'],
+  ['Shadows Into Light', 'ofl/shadowsintolight/ShadowsIntoLight.ttf'],
+  ['Indie Flower', 'ofl/indieflower/IndieFlower-Regular.ttf'],
+  ['Amatic SC', 'ofl/amaticsc/AmaticSC-Regular.ttf'],
+  ['Courgette', 'ofl/courgette/Courgette-Regular.ttf'],
+  ['Great Vibes', 'ofl/greatvibes/GreatVibes-Regular.ttf'],
+  ['Kalam', 'ofl/kalam/Kalam-Regular.ttf'],
+  ['Permanent Marker', 'apache/permanentmarker/PermanentMarker-Regular.ttf'],
+  ['Allura', 'ofl/allura/Allura-Regular.ttf'],
+  ['Reenie Beanie', 'ofl/reeniebeanie/ReenieBeanie.ttf'],
+  ['Architects Daughter', 'ofl/architectsdaughter/ArchitectsDaughter-Regular.ttf'],
+  ['Parisienne', 'ofl/parisienne/Parisienne-Regular.ttf'],
+  ['Sacramento', 'ofl/sacramento/Sacramento-Regular.ttf'],
+  ['Playfair Display', 'ofl/playfairdisplay/PlayfairDisplay%5Bwght%5D.ttf'],
+  ['Merriweather', 'ofl/merriweather/Merriweather%5Bopsz,wdth,wght%5D.ttf'],
+  ['Roboto', 'ofl/roboto/Roboto%5Bwdth,wght%5D.ttf'],
+  ['Montserrat', 'ofl/montserrat/Montserrat%5Bwght%5D.ttf'],
+  ['Bebas Neue', 'ofl/bebasneue/BebasNeue-Regular.ttf'],
+  ['Oswald', 'ofl/oswald/Oswald%5Bwght%5D.ttf'],
+  ['Lobster', 'ofl/lobster/Lobster-Regular.ttf'],
+  ['Cinzel', 'ofl/cinzel/Cinzel%5Bwght%5D.ttf'],
+  ['Abril Fatface', 'ofl/abrilfatface/AbrilFatface-Regular.ttf'],
+  ['Patrick Hand', 'ofl/patrickhand/PatrickHand-Regular.ttf'],
+  ['Gochi Hand', 'ofl/gochihand/GochiHand-Regular.ttf'],
 ];
 
 const fontCache = {};
 
 async function fetchGoogleFont(family) {
   if (fontCache[family]) return fontCache[family];
-  const cssUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}&display=swap`;
-  const css = await (await fetch(cssUrl)).text();
-  const match = css.match(/url\((https:\/\/fonts\.gstatic\.com\/[^)]+\.(?:ttf|woff2?))\)/);
-  if (!match) throw new Error('Nepavyko rasti šrifto failo nuorodos');
-  const buf = await (await fetch(match[1])).arrayBuffer();
+  const entry = FONT_LIST.find(([name]) => name === family);
+  if (!entry) throw new Error('Nežinomas šriftas');
+  const res = await fetch(RAW_BASE + entry[1]);
+  if (!res.ok) throw new Error('Nepavyko atsisiųsti šrifto failo (' + res.status + ')');
+  const buf = await res.arrayBuffer();
   const font = opentype.parse(buf);
   fontCache[family] = font;
   return font;
 }
 
 function populateFontSelect(select) {
-  for (const family of FONT_LIST) {
+  for (const [family] of FONT_LIST) {
     const opt = document.createElement('option');
     opt.value = family;
     opt.textContent = family;
