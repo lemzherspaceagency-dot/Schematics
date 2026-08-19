@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8" />
+<title>Šriftų maišyklė — Alyvų g. 4</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    background: #fafafa;
+    color: #111;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #111; color: #eee; }
+    .card { background: #1c1c1c !important; border-color: #333 !important; }
+    input[type=text] { background: #222; color: #eee; border-color: #444; }
+  }
+  h1 { font-size: 1.4rem; }
+  p.sub { opacity: .75; margin-top: -.5rem; }
+  .card {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  label { display: block; font-weight: 600; margin-bottom: .3rem; }
+  input[type=file], input[type=text], input[type=range] { width: 100%; }
+  .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 220px; }
+  canvas { background: #fff; border: 1px solid #ccc; border-radius: 6px; max-width: 100%; }
+  .canvases { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-start; }
+  .canvases figure { margin: 0; text-align: center; }
+  figcaption { font-size: .85rem; opacity: .7; margin-top: .3rem; }
+  button {
+    background: #6b4e9a; color: #fff; border: 0; border-radius: 6px;
+    padding: .55rem 1rem; font-weight: 600; cursor: pointer;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  #status { font-size: .85rem; opacity: .75; min-height: 1.2em; }
+</style>
+</head>
+<body>
+
+<h1>Šriftų maišyklė</h1>
+<p class="sub">Sumaišyk dviejų žmonių rašysenos (ar bet kokius) šriftus į vieną simbolį — pvz., raidę iš „Alyvų g. 4“.</p>
+
+<div class="card">
+  <div class="row">
+    <div>
+      <label for="fontA">1-as šriftas (.ttf/.otf/.woff)</label>
+      <input type="file" id="fontA" accept=".ttf,.otf,.woff" />
+    </div>
+    <div>
+      <label for="fontB">2-as šriftas (.ttf/.otf/.woff)</label>
+      <input type="file" id="fontB" accept=".ttf,.otf,.woff" />
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div>
+      <label for="letter">Raidė / žodis</label>
+      <input type="text" id="letter" value="A" maxlength="12" />
+    </div>
+    <div>
+      <label for="blend">Maišymo santykis (0 = 1-as šriftas, 1 = 2-as šriftas)</label>
+      <input type="range" id="blend" min="0" max="100" value="50" />
+      <div id="blendVal" style="text-align:center;font-size:.85rem;opacity:.75;">50%</div>
+    </div>
+  </div>
+  <button id="renderBtn" disabled>Maišyti</button>
+  <div id="status"></div>
+</div>
+
+<div class="canvases">
+  <figure><canvas id="cA" width="300" height="300"></canvas><figcaption>1-as šriftas</figcaption></figure>
+  <figure><canvas id="cB" width="300" height="300"></canvas><figcaption>2-as šriftas</figcaption></figure>
+  <figure><canvas id="cMix" width="300" height="300"></canvas><figcaption>Mišinys</figcaption></figure>
+</div>
+
+<script>
+const state = { fontA: null, fontB: null };
+const status = document.getElementById('status');
+const renderBtn = document.getElementById('renderBtn');
+const blendSlider = document.getElementById('blend');
+const blendVal = document.getElementById('blendVal');
+const letterInput = document.getElementById('letter');
+
+function setStatus(msg) { status.textContent = msg; }
+
+function loadFontFile(input, key, canvasId) {
+  input.addEventListener('change', () => {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const font = opentype.parse(e.target.result);
+        state[key] = font;
+        drawSingle(font, document.getElementById(canvasId));
+        setStatus(`Įkelta: ${font.names.fullName ? font.names.fullName.en : file.name}`);
+      } catch (err) {
+        setStatus('Klaida skaitant šriftą: ' + err.message);
+      }
+      renderBtn.disabled = !(state.fontA && state.fontB);
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+loadFontFile(document.getElementById('fontA'), 'fontA', 'cA');
+loadFontFile(document.getElementById('fontB'), 'fontB', 'cB');
+
+function glyphMaskForFont(font, text, size) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, size, size);
+  ctx.fillStyle = '#000';
+
+  const fontSize = size * 0.7;
+  const path = font.getPath(text, 0, 0, fontSize);
+  const bbox = path.getBoundingBox();
+  const w = bbox.x2 - bbox.x1, h = bbox.y2 - bbox.y1;
+  const scale = Math.min((size * 0.8) / w, (size * 0.8) / h) || 1;
+  const tx = size / 2 - (bbox.x1 + w / 2) * scale;
+  const ty = size / 2 - (bbox.y1 + h / 2) * scale;
+
+  ctx.save();
+  ctx.translate(tx, ty);
+  ctx.scale(scale, scale);
+  path.fill = '#000';
+  const p2d = new Path2D(path.toPathData(2));
+  ctx.fill(p2d);
+  ctx.restore();
+
+  const data = ctx.getImageData(0, 0, size, size).data;
+  const mask = new Uint8Array(size * size);
+  for (let i = 0; i < size * size; i++) mask[i] = data[i * 4 + 3] > 127 ? 1 : 0;
+  return mask;
+}
+
+function drawSingle(font, canvas) {
+  const size = canvas.width;
+  const mask = glyphMaskForFont(font, letterInput.value || 'A', size);
+  paintMask(canvas, mask, size);
+}
+
+// Two-pass chamfer distance transform (approximate Euclidean, good enough visually)
+function distanceTransform(mask, size) {
+  const INF = 1e6;
+  const dist = new Float32Array(size * size).fill(INF);
+  for (let i = 0; i < size * size; i++) if (mask[i]) dist[i] = 0;
+
+  const at = (x, y) => dist[y * size + x];
+  const set = (x, y, v) => { if (v < dist[y * size + x]) dist[y * size + x] = v; };
+  const d1 = 1, d2 = Math.SQRT2;
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      if (x > 0) set(x, y, at(x - 1, y) + d1);
+      if (y > 0) set(x, y, at(x, y - 1) + d1);
+      if (x > 0 && y > 0) set(x, y, at(x - 1, y - 1) + d2);
+      if (x < size - 1 && y > 0) set(x, y, at(x + 1, y - 1) + d2);
+    }
+  }
+  for (let y = size - 1; y >= 0; y--) {
+    for (let x = size - 1; x >= 0; x--) {
+      if (x < size - 1) set(x, y, at(x + 1, y) + d1);
+      if (y < size - 1) set(x, y, at(x, y + 1) + d1);
+      if (x < size - 1 && y < size - 1) set(x, y, at(x + 1, y + 1) + d2);
+      if (x > 0 && y < size - 1) set(x, y, at(x - 1, y + 1) + d2);
+    }
+  }
+  return dist;
+}
+
+function signedDistance(mask, size) {
+  const inv = new Uint8Array(size * size);
+  for (let i = 0; i < size * size; i++) inv[i] = mask[i] ? 0 : 1;
+  const distOutside = distanceTransform(mask, size); // 0 inside, >0 outside
+  const distInside = distanceTransform(inv, size);   // 0 outside, >0 inside
+  const sdf = new Float32Array(size * size);
+  for (let i = 0; i < size * size; i++) {
+    sdf[i] = mask[i] ? -distInside[i] : distOutside[i];
+  }
+  return sdf;
+}
+
+function paintMask(canvas, mask, size) {
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(size, size);
+  for (let i = 0; i < size * size; i++) {
+    const v = mask[i] ? 20 : 255;
+    img.data[i * 4] = v; img.data[i * 4 + 1] = v; img.data[i * 4 + 2] = v;
+    img.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+function paintBlend(canvas, sdf, size) {
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(size, size);
+  for (let i = 0; i < size * size; i++) {
+    // smooth edge over ~1.2px for anti-aliasing
+    const t = Math.max(0, Math.min(1, 0.5 - sdf[i] / 1.2));
+    const v = Math.round(255 - t * 235);
+    img.data[i * 4] = v; img.data[i * 4 + 1] = v; img.data[i * 4 + 2] = v;
+    img.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+function render() {
+  if (!state.fontA || !state.fontB) return;
+  const text = letterInput.value || 'A';
+  const size = 300;
+  setStatus('Skaičiuojama...');
+  requestAnimationFrame(() => {
+    const maskA = glyphMaskForFont(state.fontA, text, size);
+    const maskB = glyphMaskForFont(state.fontB, text, size);
+    paintMask(document.getElementById('cA'), maskA, size);
+    paintMask(document.getElementById('cB'), maskB, size);
+
+    const sdfA = signedDistance(maskA, size);
+    const sdfB = signedDistance(maskB, size);
+    const t = blendSlider.value / 100;
+    const sdfMix = new Float32Array(size * size);
+    for (let i = 0; i < size * size; i++) sdfMix[i] = sdfA[i] * (1 - t) + sdfB[i] * t;
+
+    paintBlend(document.getElementById('cMix'), sdfMix, size);
+    setStatus('Paruošta.');
+  });
+}
+
+blendSlider.addEventListener('input', () => {
+  blendVal.textContent = blendSlider.value + '%';
+  render();
+});
+letterInput.addEventListener('input', render);
+renderBtn.addEventListener('click', render);
+</script>
+
+</body>
+</html>
