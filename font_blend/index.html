@@ -30,7 +30,9 @@
     margin-bottom: 1.25rem;
   }
   label { display: block; font-weight: 600; margin-bottom: .3rem; }
-  input[type=file], input[type=text], input[type=range] { width: 100%; }
+  input[type=text], input[type=range], select { width: 100%; padding: .35rem; }
+  select { padding: .5rem; border-radius: 6px; border: 1px solid #ccc; background: #fff; color: #111; }
+  @media (prefers-color-scheme: dark) { select { background: #222; color: #eee; border-color: #444; } }
   .row { display: flex; gap: 1rem; flex-wrap: wrap; }
   .row > div { flex: 1; min-width: 220px; }
   canvas { background: #fff; border: 1px solid #ccc; border-radius: 6px; max-width: 100%; }
@@ -53,12 +55,12 @@
 <div class="card">
   <div class="row">
     <div>
-      <label for="fontA">1-as šriftas (.ttf/.otf/.woff)</label>
-      <input type="file" id="fontA" accept=".ttf,.otf,.woff" />
+      <label for="fontA">1-as šriftas</label>
+      <select id="fontA"></select>
     </div>
     <div>
-      <label for="fontB">2-as šriftas (.ttf/.otf/.woff)</label>
-      <input type="file" id="fontB" accept=".ttf,.otf,.woff" />
+      <label for="fontB">2-as šriftas</label>
+      <select id="fontB"></select>
     </div>
   </div>
 </div>
@@ -95,27 +97,62 @@ const letterInput = document.getElementById('letter');
 
 function setStatus(msg) { status.textContent = msg; }
 
-function loadFontFile(input, key, canvasId) {
-  input.addEventListener('change', () => {
-    const file = input.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const font = opentype.parse(e.target.result);
-        state[key] = font;
-        drawSingle(font, document.getElementById(canvasId));
-        setStatus(`Įkelta: ${font.names.fullName ? font.names.fullName.en : file.name}`);
-      } catch (err) {
-        setStatus('Klaida skaitant šriftą: ' + err.message);
-      }
-      renderBtn.disabled = !(state.fontA && state.fontB);
-    };
-    reader.readAsArrayBuffer(file);
-  });
+// Curated list of Google Fonts covering a range of handwriting / display / classic styles.
+const FONT_LIST = [
+  'Caveat', 'Dancing Script', 'Pacifico', 'Shadows Into Light', 'Indie Flower',
+  'Amatic SC', 'Satisfy', 'Great Vibes', 'Kalam', 'Permanent Marker',
+  'Homemade Apple', 'Reenie Beanie', 'Architects Daughter', 'Cedarville Cursive',
+  'Sacramento', 'Playfair Display', 'Merriweather', 'Roboto', 'Montserrat',
+  'Bebas Neue', 'Oswald', 'Lobster', 'Cinzel', 'Abril Fatface'
+];
+
+const fontCache = {};
+
+async function fetchGoogleFont(family) {
+  if (fontCache[family]) return fontCache[family];
+  const cssUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}&display=swap`;
+  const css = await (await fetch(cssUrl)).text();
+  const match = css.match(/url\((https:\/\/fonts\.gstatic\.com\/[^)]+\.(?:ttf|woff2?))\)/);
+  if (!match) throw new Error('Nepavyko rasti šrifto failo nuorodos');
+  const buf = await (await fetch(match[1])).arrayBuffer();
+  const font = opentype.parse(buf);
+  fontCache[family] = font;
+  return font;
 }
-loadFontFile(document.getElementById('fontA'), 'fontA', 'cA');
-loadFontFile(document.getElementById('fontB'), 'fontB', 'cB');
+
+function populateFontSelect(select) {
+  for (const family of FONT_LIST) {
+    const opt = document.createElement('option');
+    opt.value = family;
+    opt.textContent = family;
+    select.appendChild(opt);
+  }
+}
+
+function loadFontChoice(select, key, canvasId, defaultFamily) {
+  populateFontSelect(select);
+  select.value = defaultFamily;
+
+  async function load() {
+    const family = select.value;
+    setStatus(`Kraunama: ${family}...`);
+    try {
+      const font = await fetchGoogleFont(family);
+      state[key] = font;
+      drawSingle(font, document.getElementById(canvasId));
+      setStatus(`Įkelta: ${family}`);
+    } catch (err) {
+      setStatus('Klaida kraunant šriftą: ' + err.message);
+    }
+    renderBtn.disabled = !(state.fontA && state.fontB);
+    if (state.fontA && state.fontB) render();
+  }
+
+  select.addEventListener('change', load);
+  load();
+}
+loadFontChoice(document.getElementById('fontA'), 'fontA', 'cA', 'Caveat');
+loadFontChoice(document.getElementById('fontB'), 'fontB', 'cB', 'Dancing Script');
 
 function glyphMaskForFont(font, text, size) {
   const canvas = document.createElement('canvas');
