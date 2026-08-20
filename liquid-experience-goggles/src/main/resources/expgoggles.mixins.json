@@ -4,7 +4,6 @@
   "package": "com.lemzher.expgoggles.mixin",
   "compatibilityLevel": "JAVA_17",
   "plugin": "com.lemzher.expgoggles.ExpGogglesMixinPlugin",
-  "refmap": "expgoggles.refmap.json",
   "client": [],
   "injectors": {
     "defaultRequire": 1
