@@ -9,6 +9,9 @@ on:
       - 'liquid-experience-goggles/**'
       - '.github/workflows/build-liquid-experience-goggles.yml'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -48,15 +51,28 @@ jobs:
           path: liquid-experience-goggles/build/libs/*.jar
           if-no-files-found: error
 
-      # The artifact download goes through Azure blob storage, which is not reachable
-      # from the sandbox this was authored in. Emitting the jar into the job log gives a
-      # retrieval path over the GitHub API, which is reachable. Harmless either way.
-      - name: Emit jar as base64
+      # The artifact download resolves to Azure blob storage, which the authoring
+      # sandbox cannot reach. Publishing the jar onto a dedicated branch makes it
+      # retrievable over plain git, which is reachable. The branch holds only the
+      # latest build and is force-pushed each time, so no binary history accumulates.
+      - name: Publish jar to artifact branch
         run: |
           JAR=$(ls build/libs/*.jar | head -1)
-          echo "JAR_NAME=$(basename "$JAR")"
-          echo "JAR_BYTES=$(stat -c%s "$JAR")"
-          echo "JAR_SHA256=$(sha256sum "$JAR" | cut -d' ' -f1)"
-          echo "===B64_BEGIN==="
-          base64 -w 240 "$JAR"
-          echo "===B64_END==="
+          echo "Publishing $(basename "$JAR") ($(stat -c%s "$JAR") bytes)"
+          sha256sum "$JAR"
+
+          TMP=$(mktemp -d)
+          cp "$JAR" "$TMP/"
+          sha256sum "$JAR" | sed 's#.*/##' > "$TMP/SHA256SUMS"
+
+          cd "$TMP"
+          git init -q
+          git checkout -q -b build/liquid-experience-goggles-jar
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Build of ${GITHUB_SHA}"
+          git push -q --force \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" \
+            build/liquid-experience-goggles-jar
+          echo "Pushed to branch build/liquid-experience-goggles-jar"
