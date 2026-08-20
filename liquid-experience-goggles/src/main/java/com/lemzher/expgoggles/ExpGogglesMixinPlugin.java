@@ -48,28 +48,45 @@ public class ExpGogglesMixinPlugin implements IMixinConfigPlugin {
     @Override
     public List<String> getMixins() {
         // Mixins contributed by a plugin bypass the config's "client" list, so the physical
-        // side has to be checked here. Without this, dropping the jar into a server's mods
-        // folder would hook the tooltip and then fail on the first client-only class it
-        // touches. Nothing this mod does is meaningful server-side anyway.
-        if (FMLEnvironment.dist != Dist.CLIENT) {
-            LOGGER.info("Not a physical client — no goggle hooks applied.");
+        // side is checked here: on a server the hook would fail on the first client-only
+        // class it touches.
+        //
+        // This deliberately fails OPEN. Mixin configs are processed very early, and
+        // FMLEnvironment.dist can still be unset at that point; testing for "not CLIENT"
+        // treats that unset value as a server and silently disables the whole mod. Only a
+        // definite DEDICATED_SERVER skips.
+        if (isDedicatedServer()) {
+            LOGGER.info("Dedicated server detected, no goggle hooks applied.");
             return List.of();
         }
 
         List<String> selected = new ArrayList<>(1);
         for (Map.Entry<String, String> hook : HOOKS.entrySet()) {
             if (isPresent(hook.getKey())) {
-                LOGGER.info("Create goggle interface found at {}, applying {}",
+                LOGGER.info("Create goggle interface found at {}, applying {}.",
                         hook.getKey(), hook.getValue());
                 selected.add(hook.getValue());
                 break;
             }
+            LOGGER.info("No Create goggle interface at {}.", hook.getKey());
         }
         if (selected.isEmpty()) {
-            LOGGER.warn("No known Create goggle interface found — experience readouts will be "
-                    + "absent. This build knows about: {}", HOOKS.keySet());
+            LOGGER.error("No known Create goggle interface found, so experience readouts will "
+                    + "be absent. Looked for: {}", HOOKS.keySet());
         }
         return selected;
+    }
+
+    /** True only when Forge definitely reports a dedicated server. Anything else counts as a client. */
+    private static boolean isDedicatedServer() {
+        try {
+            Dist dist = FMLEnvironment.dist;
+            LOGGER.info("Physical side reported as {}.", dist);
+            return dist == Dist.DEDICATED_SERVER;
+        } catch (Throwable t) {
+            LOGGER.info("Physical side not determinable yet ({}), assuming client.", t.toString());
+            return false;
+        }
     }
 
     private static boolean isPresent(String className) {
@@ -78,13 +95,15 @@ public class ExpGogglesMixinPlugin implements IMixinConfigPlugin {
         } catch (ClassNotFoundException e) {
             return false;
         } catch (Exception | LinkageError e) {
-            LOGGER.debug("Could not probe {}: {}", className, e.toString());
+            LOGGER.warn("Could not probe {}: {}", className, e.toString());
             return false;
         }
     }
 
     @Override
-    public void onLoad(String mixinPackage) {}
+    public void onLoad(String mixinPackage) {
+        LOGGER.info("Liquid Experience Goggles mixin plugin loaded for package {}.", mixinPackage);
+    }
 
     @Override
     public String getRefMapperConfig() {

@@ -2,6 +2,10 @@ package com.lemzher.expgoggles;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -30,6 +34,11 @@ import net.minecraftforge.registries.ForgeRegistries;
  */
 public final class ExperienceTooltip {
 
+    private static final Logger LOGGER = LogManager.getLogger("expgoggles");
+
+    /** Logged once, so a silent mod can be told apart from an attached hook seeing no experience. */
+    private static final AtomicBoolean ANNOUNCED = new AtomicBoolean();
+
     /** Create indents goggle lines by four spaces, plus one per indent level. */
     private static final String INDENT = "     ";
 
@@ -41,6 +50,10 @@ public final class ExperienceTooltip {
      */
     public static void append(List<Component> tooltip, boolean isPlayerSneaking,
                               LazyOptional<IFluidHandler> capability) {
+        if (ANNOUNCED.compareAndSet(false, true)) {
+            LOGGER.info("Goggle hook is attached and running.");
+        }
+
         if (!ExpGogglesConfig.showLevels()) {
             return;
         }
