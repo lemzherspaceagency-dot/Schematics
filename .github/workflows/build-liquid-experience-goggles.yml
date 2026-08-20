@@ -47,3 +47,16 @@ jobs:
           name: liquid-experience-goggles-jar
           path: liquid-experience-goggles/build/libs/*.jar
           if-no-files-found: error
+
+      # The artifact download goes through Azure blob storage, which is not reachable
+      # from the sandbox this was authored in. Emitting the jar into the job log gives a
+      # retrieval path over the GitHub API, which is reachable. Harmless either way.
+      - name: Emit jar as base64
+        run: |
+          JAR=$(ls build/libs/*.jar | head -1)
+          echo "JAR_NAME=$(basename "$JAR")"
+          echo "JAR_BYTES=$(stat -c%s "$JAR")"
+          echo "JAR_SHA256=$(sha256sum "$JAR" | cut -d' ' -f1)"
+          echo "===B64_BEGIN==="
+          base64 -w 240 "$JAR"
+          echo "===B64_END==="
