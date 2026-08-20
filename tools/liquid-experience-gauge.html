@@ -1,0 +1,843 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Liquid Experience Gauge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700;800&family=DM+Mono:wght@400;500&family=Public+Sans:wght@400;500;700&display=swap">
+<style>
+/* ─────────────────────────────────────────────────────────────
+   Tokens — light is the bare :root; dark redefines tokens only.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --ground:      #EFE6D3;
+  --ground-deep: #E3D7BE;
+  --panel:       #F8F2E4;
+  --panel-sunk:  #E7DCC4;
+  --edge:        #C9B694;
+  --edge-soft:   #DCCFB3;
+  --text:        #2A2018;
+  --text-dim:    #6B5B45;
+  --brass:       #8A6321;
+  --brass-lit:   #A87C2E;
+  --xp:          #4C7A08;
+  --xp-lit:      #6FA80F;
+  --xp-veil:     rgba(111,168,15,.22);
+  --tank-void:   #DCCFB3;
+  --shade:       rgba(42,32,24,.13);
+  --focus:       #A87C2E;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:      #15100B;
+    --ground-deep: #0D0906;
+    --panel:       #1E1810;
+    --panel-sunk:  #120D08;
+    --edge:        #3B2F1F;
+    --edge-soft:   #2A2117;
+    --text:        #EFE3CB;
+    --text-dim:    #A08E74;
+    --brass:       #C89A55;
+    --brass-lit:   #E2B876;
+    --xp:          #8FE31D;
+    --xp-lit:      #C4F76A;
+    --xp-veil:     rgba(143,227,29,.26);
+    --tank-void:   #100C07;
+    --shade:       rgba(0,0,0,.55);
+    --focus:       #E2B876;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ground:      #15100B;
+  --ground-deep: #0D0906;
+  --panel:       #1E1810;
+  --panel-sunk:  #120D08;
+  --edge:        #3B2F1F;
+  --edge-soft:   #2A2117;
+  --text:        #EFE3CB;
+  --text-dim:    #A08E74;
+  --brass:       #C89A55;
+  --brass-lit:   #E2B876;
+  --xp:          #8FE31D;
+  --xp-lit:      #C4F76A;
+  --xp-veil:     rgba(143,227,29,.26);
+  --tank-void:   #100C07;
+  --shade:       rgba(0,0,0,.55);
+  --focus:       #E2B876;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  background-image:
+    radial-gradient(120% 80% at 12% 0%, var(--xp-veil) 0%, transparent 58%),
+    linear-gradient(180deg, var(--ground) 0%, var(--ground-deep) 100%);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: clamp(1.75rem, 5vw, 4.5rem) clamp(1.1rem, 4vw, 2.5rem) 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.75rem, 4vw, 3rem);
+}
+
+/* ── Masthead ─────────────────────────────────────────────── */
+.eyebrow {
+  font-family: "DM Mono", ui-monospace, monospace;
+  font-size: .715rem;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+  color: var(--brass);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .55em;
+  margin: 0 0 .85rem;
+}
+.eyebrow .bullet { color: var(--edge); }
+
+h1 {
+  font-family: "Big Shoulders Display", "Public Sans", sans-serif;
+  font-weight: 800;
+  font-size: clamp(2.9rem, 8.5vw, 5.25rem);
+  line-height: .88;
+  letter-spacing: -.005em;
+  text-wrap: balance;
+  margin: 0;
+  color: var(--text);
+}
+h1 em { font-style: normal; color: var(--xp); }
+.deck {
+  margin: 1rem 0 0;
+  max-width: 58ch;
+  color: var(--text-dim);
+  font-size: 1.03rem;
+}
+.deck strong { color: var(--text); font-weight: 600; }
+
+/* ── Console ──────────────────────────────────────────────── */
+.console {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: clamp(1rem, 2.5vw, 1.75rem);
+  align-items: stretch;
+}
+
+/* ── Tank ─────────────────────────────────────────────────── */
+.tank-rail { display: flex; flex-direction: column; gap: .8rem; min-width: 0; }
+.tank {
+  position: relative;
+  flex: 1;
+  min-height: 380px;
+  border: 2px solid var(--edge);
+  border-radius: 3px;
+  background: var(--tank-void);
+  box-shadow: inset 0 2px 14px var(--shade);
+  overflow: hidden;
+}
+.tank::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  background:
+    linear-gradient(180deg, var(--brass) 0 5px, transparent 5px),
+    linear-gradient(0deg,   var(--brass) 0 5px, transparent 5px),
+    linear-gradient(90deg, rgba(255,255,255,.10) 0%, transparent 26%, transparent 74%, var(--shade) 100%);
+  opacity: .85;
+}
+.tank-ticks {
+  position: absolute;
+  inset: 5px 0;
+  z-index: 2;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(180deg, var(--edge) 0 1px, transparent 1px 25%);
+  opacity: .4;
+}
+.tank-fluid {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 0%;
+  background: linear-gradient(180deg, var(--xp-lit) 0%, var(--xp) 34%, var(--xp) 100%);
+  box-shadow: 0 0 34px var(--xp-veil), 0 -2px 18px var(--xp-veil);
+  transition: height .55s cubic-bezier(.22,.9,.28,1);
+  will-change: height;
+}
+.wave {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  width: 200%;
+  height: 20px;
+  display: block;
+  fill: var(--xp-lit);
+  animation: drift 5.5s linear infinite;
+}
+.wave.back {
+  fill: var(--xp);
+  height: 26px;
+  opacity: .55;
+  animation-duration: 8.5s;
+  animation-direction: reverse;
+}
+@keyframes drift {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.tank-caption {
+  font-family: "DM Mono", ui-monospace, monospace;
+  font-size: .7rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-align: center;
+  line-height: 1.5;
+  margin: 0;
+}
+.tank-caption b { display: block; color: var(--brass); font-weight: 500; }
+
+/* ── Panel ────────────────────────────────────────────────── */
+.panel { display: flex; flex-direction: column; gap: clamp(1rem, 2.5vw, 1.5rem); min-width: 0; }
+.plate {
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  box-shadow: 0 1px 0 var(--edge-soft), 0 14px 34px -26px var(--shade);
+  padding: clamp(1.1rem, 3vw, 1.75rem);
+}
+
+.field-label {
+  display: block;
+  font-family: "DM Mono", ui-monospace, monospace;
+  font-size: .705rem;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin: 0 0 .5rem;
+}
+
+/* version bar */
+.version-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: .75rem 1.1rem;
+  align-items: center;
+  padding-bottom: 1.2rem;
+  margin-bottom: 1.35rem;
+  border-bottom: 1px dashed var(--edge);
+}
+.select-wrap { position: relative; }
+.select-wrap::after {
+  content: "";
+  position: absolute;
+  right: .75rem; top: 50%;
+  width: 7px; height: 7px;
+  margin-top: -5px;
+  border-right: 2px solid var(--brass);
+  border-bottom: 2px solid var(--brass);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+#version {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  background: var(--panel-sunk);
+  border: 1px solid var(--edge);
+  border-radius: 3px;
+  padding: .6rem 2.2rem .6rem .75rem;
+  color: var(--text);
+  font-family: "DM Mono", ui-monospace, monospace;
+  font-size: .92rem;
+  cursor: pointer;
+}
+#version:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.version-note {
+  font-family: "DM Mono", ui-monospace, monospace;
+  font-size: .705rem;
+  letter-spacing: .05em;
+  color: var(--text-dim);
+  text-align: right;
+  line-height: 1.5;
+  margin: 0;
+}
+.version-note b { color: var(--xp); font-weight: 500; }
+
+/* amount entry */
+.amount {
+  display: flex;
+  align-items: baseline;
+  gap: .55rem;
+  border-bottom: 2px solid var(--edge);
+  padding-bottom: .3rem;
+}
+.amount:focus-within { border-bottom-color: var(--xp); }
+#mb {
+  flex: 0 1 auto;
+  width: 6ch;
+  min-width: 0;
+  max-width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--text);
+  font-family: "Big Shoulders Display", "DM Mono", monospace;
+  font-weight: 700;
+  font-size: clamp(2.5rem, 7vw, 3.6rem);
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+#mb:focus { outline: none; }
+#mb::placeholder { color: var(--edge); }
+#mb::-webkit-outer-spin-button,
+#mb::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.amount .spacer { flex: 1 1 auto; }
+.amount .unit {
+  font-family: "DM Mono", ui-monospace, monospace;
+  font-size: 1.05rem;
+  color: var(--text-dim);
+}
+
+/* fluid + start-level row */
+.controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1.25rem;
+  margin-top: 1.4rem;
+  align-items: end;
+}
+.segmented {
+  position: relative;
+  display: flex;
+  border: 1px solid var(--edge);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.segmented input {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.segmented label {
+  flex: 1;
+  padding: .5rem .7rem;
+  cursor: pointer;
+  background: var(--panel-sunk);
+  color: var(--text-dim);
+  font-size: .8rem;
+  line-height: 1.25;
+  text-align: center;
+  transition: background .18s, color .18s, opacity .18s;
+}
+.segmented label + label { border-left: 1px solid var(--edge); }
+.segmented label .rate {
+  display: block;
+  font-family: "DM Mono", ui-monospace, monospace;
+  font-size: .66rem;
+  letter-spacing: .05em;
+  opacity: .8;
+}
+.segmented input:checked + label {
+  background: var(--xp);
+  color: var(--ground-deep);
+  font-weight: 600;
+}
+.segmented input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: -2px; }
+.segmented input:disabled + label {
+  opacity: .34;
+  cursor: not-allowed;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.start { display: flex; align-items: center; gap: .5rem; }
+#start {
+  width: 5.25rem;
+  background: var(--panel-sunk);
+  border: 1px solid var(--edge);
+  border-radius: 3px;
+  padding: .45rem .55rem;
+  color: var(--text);
+  font-family: "DM Mono", ui-monospace, monospace;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+#start:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* presets */
+.presets { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: 1.4rem; }
+.presets button {
+  font-family: "DM Mono", ui-monospace, monospace;
+  font-size: .72rem;
+  padding: .38rem .65rem;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: border-color .18s, color .18s, background .18s;
+}
+.presets button:hover { border-color: var(--xp); color: var(--text); background: var(--xp-veil); }
+.presets button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ── Readout ──────────────────────────────────────────────── */
+.readout { display: flex; flex-direction: column; gap: 1.15rem; }
+.result-line { display: flex; align-items: baseline; flex-wrap: wrap; gap: .1rem 1rem; }
+.level-num {
+  font-family: "Big Shoulders Display", sans-serif;
+  font-weight: 800;
+  font-size: clamp(4.5rem, 15vw, 8.5rem);
+  line-height: .78;
+  letter-spacing: -.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.level-tag {
+  font-family: "DM Mono", ui-monospace, monospace;
+  font-size: .78rem;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--brass);
+  padding-bottom: .45rem;
+}
+.progress-note { font-size: .95rem; color: var(--text-dim); margin: 0; }
+.progress-note b { color: var(--xp); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 1px;
+  background: var(--edge-soft);
+  border: 1px solid var(--edge-soft);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 0;
+}
+.stat { background: var(--panel); padding: .75rem .85rem; }
+.stat dt {
+  font-family: "DM Mono", ui-monospace, monospace;
+  font-size: .655rem;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 0 0 .25rem;
+}
+.stat dd {
+  margin: 0;
+  font-family: "DM Mono", ui-monospace, monospace;
+  font-size: 1.02rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* ── Reference ────────────────────────────────────────────── */
+.reference h2 {
+  font-family: "Big Shoulders Display", sans-serif;
+  font-weight: 700;
+  font-size: 1.85rem;
+  margin: 0 0 .2rem;
+  color: var(--text);
+}
+.reference p.note {
+  margin: 0 0 1.1rem;
+  color: var(--text-dim);
+  font-size: .93rem;
+  max-width: 64ch;
+}
+.table-wrap { overflow-x: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: "DM Mono", ui-monospace, monospace;
+  font-size: .84rem;
+  font-variant-numeric: tabular-nums;
+  min-width: 440px;
+}
+th, td {
+  padding: .5rem .75rem;
+  text-align: right;
+  border-bottom: 1px solid var(--edge-soft);
+  white-space: nowrap;
+}
+th:first-child, td:first-child { text-align: left; }
+thead th {
+  font-size: .655rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--brass);
+  border-bottom: 1px solid var(--edge);
+  font-weight: 500;
+}
+tbody tr.mark td, tbody tr.mark th { color: var(--xp); }
+tbody tr:hover td { background: var(--panel); }
+.hide-hyper .col-hyper { display: none; }
+
+/* ── Colophon ─────────────────────────────────────────────── */
+.colophon {
+  border-top: 1px solid var(--edge-soft);
+  padding-top: 1.1rem;
+  font-size: .82rem;
+  color: var(--text-dim);
+  max-width: 76ch;
+}
+.colophon code {
+  font-family: "DM Mono", ui-monospace, monospace;
+  font-size: .95em;
+  color: var(--brass);
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 720px) {
+  .console { grid-template-columns: minmax(0, 1fr); }
+  .tank { min-height: 130px; }
+  .tank-rail { flex-direction: column-reverse; }
+  .controls, .version-bar { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+  .version-note { text-align: left; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wave { animation: none; }
+  .tank-fluid { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <header>
+    <p class="eyebrow">
+      <span>Create: Enchantment Industry</span>
+      <span class="bullet">/</span>
+      <span id="eyebrowVersion">Minecraft 1.18.2</span>
+      <span class="bullet">/</span>
+      <span id="eyebrowMod">CEI 1.2.x</span>
+    </p>
+    <h1>Liquid Experience <em>Gauge</em></h1>
+    <p class="deck">
+      Pour in millibuckets, read out the level. Enchantment Industry stores experience at
+      <strong>1&nbsp;mB per experience point</strong> &mdash; but points are not levels, and the
+      curve steepens hard past 16 and again past 31. This does that conversion.
+    </p>
+  </header>
+
+  <main class="console">
+
+    <div class="tank-rail">
+      <div class="tank">
+        <div class="tank-ticks"></div>
+        <div class="tank-fluid" id="fluid">
+          <svg class="wave back" viewBox="0 0 240 26" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0,14 C20,6 40,6 60,14 C80,22 100,22 120,14 C140,6 160,6 180,14 C200,22 220,22 240,14 L240,26 L0,26 Z"></path>
+          </svg>
+          <svg class="wave" viewBox="0 0 240 20" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0,11 C20,4 40,4 60,11 C80,18 100,18 120,11 C140,4 160,4 180,11 C200,18 220,18 240,11 L240,20 L0,20 Z"></path>
+          </svg>
+        </div>
+      </div>
+      <p class="tank-caption" id="tankCaption"><b>&mdash;</b> through the level</p>
+    </div>
+
+    <div class="panel">
+
+      <section class="plate">
+
+        <div class="version-bar">
+          <div>
+            <label class="field-label" for="version">Your setup</label>
+            <div class="select-wrap">
+              <select id="version">
+                <option value="0" selected>Minecraft 1.18.2 &mdash; CEI 1.2.x</option>
+                <option value="1">Minecraft 1.19.2 &mdash; CEI 1.2.x</option>
+                <option value="2">Minecraft 1.20.1 &mdash; CEI 1.3 / 1.4</option>
+                <option value="3">Minecraft 1.20.1 &mdash; CEI 2.x</option>
+                <option value="4">Minecraft 1.21.1 &mdash; CEI 2.x</option>
+              </select>
+            </div>
+          </div>
+          <p class="version-note" id="versionNote"></p>
+        </div>
+
+        <label class="field-label" for="mb">Fluid in the tank</label>
+        <div class="amount">
+          <input id="mb" type="number" min="0" step="1" value="2000"
+                 inputmode="numeric" placeholder="0" autocomplete="off">
+          <span class="unit">mB</span>
+          <span class="spacer"></span>
+        </div>
+
+        <div class="controls">
+          <div>
+            <span class="field-label" id="fluidLabel">Which fluid</span>
+            <div class="segmented" role="radiogroup" aria-labelledby="fluidLabel">
+              <input type="radio" name="fluid" id="fNormal" value="1" checked>
+              <label for="fNormal">Liquid Experience<span class="rate">1 mB = 1 XP</span></label>
+              <input type="radio" name="fluid" id="fHyper" value="10">
+              <label for="fHyper" id="hyperLabel">Hyper Experience<span class="rate">1 mB = 10 XP</span></label>
+            </div>
+          </div>
+          <div>
+            <label class="field-label" for="start">Starting level</label>
+            <div class="start">
+              <input id="start" type="number" min="0" max="21863" step="1" value="0"
+                     inputmode="numeric" autocomplete="off">
+            </div>
+          </div>
+        </div>
+
+        <div class="presets">
+          <button type="button" data-mb="100">100 mB</button>
+          <button type="button" data-mb="1000">1 bucket &middot; 1,000</button>
+          <button type="button" data-mb="1395">level 30 &middot; 1,395</button>
+          <button type="button" data-mb="10000">10 buckets &middot; 10,000</button>
+          <button type="button" data-mb="30970">level 100 &middot; 30,970</button>
+        </div>
+      </section>
+
+      <section class="plate readout" aria-live="polite" aria-atomic="true">
+        <div class="result-line">
+          <span class="level-num" id="levelOut">34</span>
+          <span class="level-tag" id="levelTag">experience levels</span>
+        </div>
+        <p class="progress-note" id="note"></p>
+        <dl class="stats">
+          <div class="stat"><dt>Experience points</dt><dd id="sPoints">&mdash;</dd></div>
+          <div class="stat"><dt>Buckets o' Enchanting</dt><dd id="sBuckets">&mdash;</dd></div>
+          <div class="stat"><dt>To next level</dt><dd id="sNext">&mdash;</dd></div>
+          <div class="stat" id="hyperStat"><dt>As Hyper Experience</dt><dd id="sHyper">&mdash;</dd></div>
+        </dl>
+      </section>
+
+    </div>
+  </main>
+
+  <section class="reference" id="reference">
+    <h2>What each level costs</h2>
+    <p class="note">
+      Cumulative Liquid Experience needed to reach a level from a standing start. The vanilla XP
+      curve has not changed since 1.8, so these figures hold on every version in the list &mdash;
+      only the available fluids differ.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Level</th>
+            <th scope="col">Liquid Experience</th>
+            <th scope="col" class="col-hyper">Hyper Experience</th>
+            <th scope="col">Buckets</th>
+            <th scope="col">That level alone</th>
+          </tr>
+        </thead>
+        <tbody id="refBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="colophon">
+    Ratios read from the mod source, per branch. Through CEI 1.4,
+    <code>ExperienceFluid</code> defaults to <code>xpRatio = 1</code> and
+    <code>HyperExperienceFluid</code> calls <code>super(10, &hellip;)</code>. In CEI 2.x the Hyper
+    fluid is gone entirely and <code>ExperienceHelper.getExperienceFromFluid</code> returns the
+    stack amount unchanged &mdash; still 1&nbsp;mB per point. Level maths is vanilla:
+    <code>2L+7</code> below 15, <code>5L&minus;38</code> to 29, <code>9L&minus;158</code> from 30 up.
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ── what actually differs between versions ───────────────── */
+  var VERSIONS = [
+    { mc: "1.18.2", mod: "CEI 1.2.x",      hyper: true  },
+    { mc: "1.19.2", mod: "CEI 1.2.x",      hyper: true  },
+    { mc: "1.20.1", mod: "CEI 1.3 / 1.4",  hyper: true  },
+    { mc: "1.20.1", mod: "CEI 2.x",        hyper: false },
+    { mc: "1.21.1", mod: "CEI 2.x",        hyper: false }
+  ];
+
+  /* ── vanilla experience curve ─────────────────────────────── */
+  function xpForNextLevel(L) {
+    if (L >= 30) return 9 * L - 158;
+    if (L >= 15) return 5 * L - 38;
+    return 2 * L + 7;
+  }
+
+  function xpForTotalLevel(L) {
+    if (L <= 0) return 0;
+    if (L >= 31) return (9 * L * L - 325 * L) / 2 + 2220;
+    if (L >= 16) return (5 * L * L - 81 * L) / 2 + 360;
+    return L * L + 6 * L;
+  }
+
+  /* closed-form inverse, then nudged onto the exact integer boundary */
+  function levelForXp(x) {
+    if (!(x > 0)) return 0;
+    var L;
+    if (x < 352)       L = -3 + Math.sqrt(9 + x);
+    else if (x < 1507) L = (Math.sqrt(40 * x - 7839) + 81) / 10;
+    else               L = (Math.sqrt(72 * x - 54215) + 325) / 18;
+    L = Math.floor(L);
+    while (L > 0 && xpForTotalLevel(L) > x) L--;
+    while (xpForTotalLevel(L + 1) <= x) L++;
+    return L;
+  }
+
+  /* ── the one function ─────────────────────────────────────── */
+  function millibucketsToLevels(mB, mBPerPoint, startLevel) {
+    var points = Math.floor(mB) * mBPerPoint;
+    var total  = xpForTotalLevel(startLevel) + points;
+    var level  = levelForXp(total);
+    var into   = total - xpForTotalLevel(level);
+    var span   = xpForNextLevel(level);
+    return {
+      level:    level,
+      gained:   level - startLevel,
+      points:   points,
+      into:     into,
+      span:     span,
+      fraction: span > 0 ? into / span : 0,
+      toNext:   Math.ceil((span - into) / mBPerPoint)
+    };
+  }
+
+  /* ── wiring ───────────────────────────────────────────────── */
+  var versionEl = document.getElementById("version");
+  var mbEl      = document.getElementById("mb");
+  var startEl   = document.getElementById("start");
+  var normalEl  = document.getElementById("fNormal");
+  var hyperEl   = document.getElementById("fHyper");
+  var fluidBox  = document.getElementById("fluid");
+  var tankCap   = document.getElementById("tankCaption");
+  var levelOut  = document.getElementById("levelOut");
+  var levelTag  = document.getElementById("levelTag");
+  var note      = document.getElementById("note");
+  var sPoints   = document.getElementById("sPoints");
+  var sBuckets  = document.getElementById("sBuckets");
+  var sNext     = document.getElementById("sNext");
+  var sHyper    = document.getElementById("sHyper");
+  var hyperStat = document.getElementById("hyperStat");
+  var hyperLbl  = document.getElementById("hyperLabel");
+  var vNote     = document.getElementById("versionNote");
+  var eyeVer    = document.getElementById("eyebrowVersion");
+  var eyeMod    = document.getElementById("eyebrowMod");
+  var reference = document.getElementById("reference");
+
+  var fmt = new Intl.NumberFormat("en-US");
+  function n(v) { return fmt.format(v); }
+
+  function applyVersion() {
+    var v = VERSIONS[parseInt(versionEl.value, 10)] || VERSIONS[0];
+
+    eyeVer.textContent = "Minecraft " + v.mc;
+    eyeMod.textContent = v.mod;
+
+    hyperEl.disabled = !v.hyper;
+    if (!v.hyper && hyperEl.checked) normalEl.checked = true;
+
+    hyperLbl.title = v.hyper ? "" : "Removed in CEI 2.x";
+    hyperStat.hidden = !v.hyper;
+    reference.classList.toggle("hide-hyper", !v.hyper);
+
+    vNote.innerHTML = v.hyper
+      ? "Liquid Experience <b>and</b> Hyper<br>both available"
+      : "Hyper Experience was<br><b>removed</b> in CEI 2.x";
+
+    render();
+  }
+
+  function render() {
+    var mB    = Math.max(0, Math.min(2147483647, parseInt(mbEl.value, 10) || 0));
+    var start = Math.max(0, Math.min(21863, parseInt(startEl.value, 10) || 0));
+    var rate  = hyperEl.checked && !hyperEl.disabled ? 10 : 1;
+    var r     = millibucketsToLevels(mB, rate, start);
+
+    mbEl.style.width = Math.max(3, String(mbEl.value || "").length + 0.5) + "ch";
+    levelOut.textContent = n(r.level);
+    fluidBox.style.height = (r.fraction * 100).toFixed(2) + "%";
+
+    if (start > 0) {
+      levelTag.textContent = "levels, up from " + n(start);
+      note.innerHTML = "That is <b>+" + n(r.gained) + "</b> level" +
+        (r.gained === 1 ? "" : "s") + ", landing <b>" + n(r.into) + " / " + n(r.span) +
+        "</b> of the way through level " + n(r.level + 1) + ".";
+    } else {
+      levelTag.textContent = r.level === 1 ? "experience level" : "experience levels";
+      note.innerHTML = mB === 0
+        ? "An empty tank buys nothing. Enter an amount above."
+        : "&hellip;plus <b>" + n(r.into) + " / " + n(r.span) +
+          "</b> experience into level " + n(r.level + 1) + ".";
+    }
+
+    tankCap.innerHTML = "<b>" + Math.round(r.fraction * 100) + "%</b> through level " + n(r.level + 1);
+
+    sPoints.textContent  = n(r.points);
+    sBuckets.textContent = (mB / 1000).toLocaleString("en-US", {
+      minimumFractionDigits: 3, maximumFractionDigits: 3
+    });
+    sNext.textContent    = (mB === 0
+      ? n(Math.ceil(xpForNextLevel(start) / rate))
+      : n(r.toNext)) + " mB";
+    sHyper.textContent   = rate === 10
+      ? n(mB) + " mB"
+      : (mB / 10).toLocaleString("en-US", { maximumFractionDigits: 1 }) + " mB";
+  }
+
+  versionEl.addEventListener("change", applyVersion);
+  mbEl.addEventListener("input", render);
+  startEl.addEventListener("input", render);
+  normalEl.addEventListener("change", render);
+  hyperEl.addEventListener("change", render);
+  document.querySelectorAll(".presets button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      mbEl.value = b.getAttribute("data-mb");
+      render();
+      mbEl.focus();
+    });
+  });
+
+  /* ── reference table ──────────────────────────────────────── */
+  var rows = [1, 5, 10, 15, 16, 20, 25, 30, 31, 40, 50, 60, 80, 100];
+  var marked = { 16: 1, 30: 1, 31: 1 };
+  document.getElementById("refBody").innerHTML = rows.map(function (L) {
+    var t = xpForTotalLevel(L);
+    return "<tr" + (marked[L] ? ' class="mark"' : "") + ">" +
+      '<th scope="row">' + L + "</th>" +
+      "<td>" + n(t) + " mB</td>" +
+      '<td class="col-hyper">' + (t / 10).toLocaleString("en-US", { maximumFractionDigits: 1 }) + " mB</td>" +
+      "<td>" + (t / 1000).toFixed(3) + "</td>" +
+      "<td>" + n(xpForNextLevel(L - 1)) + " mB</td>" +
+      "</tr>";
+  }).join("");
+
+  applyVersion();
+})();
+</script>
+
+</body>
+</html>
