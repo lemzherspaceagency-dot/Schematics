@@ -89,15 +89,48 @@ public class ExpGogglesMixinPlugin implements IMixinConfigPlugin {
         }
     }
 
+    /**
+     * Whether a class exists, without loading it.
+     *
+     * <p>Neither probe initialises the class. That matters: force-loading Create's goggle
+     * interface here would freeze it before this very mixin gets to transform it.
+     *
+     * <p>Two probes rather than one, because the bytecode provider does not always see
+     * another mod's jar this early in startup, and a probe that answers "no" for both
+     * layouts silently disables the whole mod.
+     */
     private static boolean isPresent(String className) {
         try {
-            return MixinService.getService().getBytecodeProvider().getClassNode(className) != null;
+            if (MixinService.getService().getBytecodeProvider().getClassNode(className) != null) {
+                return true;
+            }
         } catch (ClassNotFoundException e) {
-            return false;
+            // Fall through to the resource probe; the class may simply not be visible yet.
         } catch (Exception | LinkageError e) {
-            LOGGER.warn("Could not probe {}: {}", className, e.toString());
-            return false;
+            LOGGER.warn("Bytecode probe for {} failed ({}), falling back to a resource lookup.",
+                    className, e.toString());
         }
+        return hasClassResource(className);
+    }
+
+    /** Looks for the .class file on the classpath. Never defines or initialises the class. */
+    private static boolean hasClassResource(String className) {
+        String path = className.replace('.', '/') + ".class";
+        ClassLoader loader = ExpGogglesMixinPlugin.class.getClassLoader();
+        try {
+            if (loader != null && loader.getResource(path) != null) {
+                LOGGER.info("Found {} via classpath resource lookup.", className);
+                return true;
+            }
+            ClassLoader context = Thread.currentThread().getContextClassLoader();
+            if (context != null && context != loader && context.getResource(path) != null) {
+                LOGGER.info("Found {} via context classloader resource lookup.", className);
+                return true;
+            }
+        } catch (Exception | LinkageError e) {
+            LOGGER.warn("Resource probe for {} failed: {}", className, e.toString());
+        }
+        return false;
     }
 
     @Override
