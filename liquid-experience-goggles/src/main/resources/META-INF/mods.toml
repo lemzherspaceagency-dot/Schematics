@@ -1,0 +1,49 @@
+modLoader="javafml"
+loaderVersion="[40,)"
+license="${mod_license}"
+issueTrackerURL="https://github.com/lemzherspaceagency-dot/Schematics/issues"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="lemzher"
+description='''
+Adds an experience readout to the Engineer's Goggles. Look at any tank holding Create:
+Enchantment Industry's Liquid Experience and the goggle overlay tells you what it is
+worth in levels, not just millibuckets. Sneak to see where it would leave you.
+
+Client-side only — it is not needed on the server.
+'''
+
+[[dependencies.${mod_id}]]
+    modId="forge"
+    mandatory=true
+    versionRange="[40,)"
+    ordering="NONE"
+    side="CLIENT"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.18.2,1.19)"
+    ordering="NONE"
+    side="CLIENT"
+
+# Any Create for this Minecraft version will do. The goggle interface moved package in
+# 0.5.1, so the mod ships a hook for each layout and picks the one that resolves at load.
+[[dependencies.${mod_id}]]
+    modId="create"
+    mandatory=true
+    versionRange="[0.5,)"
+    ordering="AFTER"
+    side="CLIENT"
+
+# Optional so the mod still loads (and stays silent) without it. Its fluids are matched by
+# registry id, so there is no hard link to its classes.
+[[dependencies.${mod_id}]]
+    modId="create_enchantment_industry"
+    mandatory=false
+    versionRange="[1.2,)"
+    ordering="AFTER"
+    side="CLIENT"

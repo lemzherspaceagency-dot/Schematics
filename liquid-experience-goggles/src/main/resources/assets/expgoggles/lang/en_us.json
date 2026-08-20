@@ -1,0 +1,7 @@
+{
+  "expgoggles.level": "%1$s level",
+  "expgoggles.levels": "%1$s levels",
+  "expgoggles.points": "%1$s XP",
+  "expgoggles.projection": "You: %1$s → %2$s",
+  "expgoggles.gain": "(+%1$s)"
+}

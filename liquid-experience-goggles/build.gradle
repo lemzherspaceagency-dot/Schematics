@@ -1,0 +1,99 @@
+buildscript {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net/' }
+        maven { url = 'https://maven.parchmentmc.org' }
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
+        classpath group: 'org.parchmentmc', name: 'librarian', version: '1.+'
+        classpath group: 'org.spongepowered', name: 'mixingradle', version: '0.7-SNAPSHOT'
+    }
+}
+
+apply plugin: 'net.minecraftforge.gradle'
+apply plugin: 'org.parchmentmc.librarian.forgegradle'
+apply plugin: 'org.spongepowered.mixin'
+apply plugin: 'java'
+
+group = mod_group
+version = "${minecraft_version}-${mod_version}"
+archivesBaseName = "liquid-experience-goggles"
+
+// ForgeGradle 5 / Forge 40 for 1.18.2 requires a Java 17 toolchain.
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+minecraft {
+    mappings channel: 'parchment', version: "${parchment_version}-${minecraft_version}"
+    runs {
+        client {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            arg '-mixin.config=expgoggles.mixins.json'
+            mods { expgoggles { source sourceSets.main } }
+        }
+        // A dedicated server run is deliberately not configured: this mod is
+        // client-only and does nothing when loaded on a server.
+    }
+}
+
+repositories {
+    maven {
+        // Create, Flywheel, Registrate
+        name = 'tterrag maven'
+        url = 'https://maven.tterrag.com/'
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+
+    // No mod source file imports a Create class — the hooks name their target as a string
+    // and the tooltip is built from vanilla components. Create is on the compile classpath
+    // only so Mixin's annotation processor can resolve the current target and validate the
+    // injection; the legacy target is expected to report as unresolved, which is why the
+    // hooks are selected at runtime rather than pinned here.
+    compileOnly fg.deobf("com.simibubi.create:create-${minecraft_version}:${create_version}-${create_version_build}:slim") { transitive = false }
+
+    // Needed only so `gradlew runClient` has Create (and whatever else you drop in) to look at.
+    runtimeOnly fg.deobf("com.simibubi.create:create-${minecraft_version}:${create_version}-${create_version_build}:slim") { transitive = false }
+    runtimeOnly fg.deobf("com.jozufozu.flywheel:flywheel-forge-${minecraft_version}:${flywheel_version}")
+    runtimeOnly fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")
+}
+
+mixin {
+    add sourceSets.main, 'expgoggles.refmap.json'
+    config 'expgoggles.mixins.json'
+}
+
+// The legacy hook names a class that is not on the compile classpath; that is by design.
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replacements = [
+        mod_id     : mod_id,
+        mod_name   : mod_name,
+        mod_version: mod_version,
+        mod_license: mod_license,
+    ]
+    inputs.properties replacements
+    filesMatching('META-INF/mods.toml') { expand replacements }
+}
+
+tasks.named('jar', Jar).configure {
+    manifest {
+        attributes([
+            'Specification-Title'     : mod_id,
+            'Specification-Vendor'    : 'lemzher',
+            'Specification-Version'   : '1',
+            'Implementation-Title'    : mod_name,
+            'Implementation-Version'  : mod_version,
+            'Implementation-Vendor'   : 'lemzher',
+            'MixinConfigs'            : 'expgoggles.mixins.json'
+        ])
+    }
+    finalizedBy 'reobfJar'
+}
