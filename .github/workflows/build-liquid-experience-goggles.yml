@@ -1,0 +1,49 @@
+name: Build Liquid Experience Goggles
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'claude/**'
+    paths:
+      - 'liquid-experience-goggles/**'
+      - '.github/workflows/build-liquid-experience-goggles.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: liquid-experience-goggles
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ForgeGradle 5 does not run on JDKs newer than 17.
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Gradle and ForgeGradle caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-forgegradle-${{ hashFiles('liquid-experience-goggles/*.gradle', 'liquid-experience-goggles/gradle.properties') }}
+          restore-keys: ${{ runner.os }}-forgegradle-
+
+      - name: Build
+        run: ./gradlew build --no-daemon --stacktrace
+
+      - name: Show what was produced
+        run: ls -la build/libs
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: liquid-experience-goggles-jar
+          path: liquid-experience-goggles/build/libs/*.jar
+          if-no-files-found: error
