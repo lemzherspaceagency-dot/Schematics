@@ -1,15 +1,63 @@
 # AV/EDR resource monitor (AGENT_665956_V10_15_3_RW)
 
-Small Python + `psutil` tool for measuring how much CPU and RAM the
-`AGENT_665956_V10_15_3_RW.EXE` agent uses once installed in a Windows
-Sandbox. Comes in two flavours:
+Tools for measuring how much CPU and RAM the `AGENT_665956_V10_15_3_RW.EXE`
+agent uses once installed in a Windows Sandbox.
+
+## If your Sandbox has no Python, no Notepad, no internet: use the PowerShell script
+
+`monitor_av_resources.ps1` needs **nothing** except PowerShell itself,
+which is a core part of Windows and is present even in a bare-bones
+Sandbox image — it is not a separate app that can be "missing" the way
+Notepad currently can be (recent Windows 11 ships Notepad as a Store app,
+so an offline/isolated Sandbox can end up without it). No install, no
+internet, no `.bat`, no Python.
+
+**Getting the script in without Notepad or drag-and-drop:**
+1. Open PowerShell in the Sandbox: Start menu → type `powershell` → Enter
+   (or `Win+R` → `powershell`).
+2. Select and copy this file's entire contents from wherever you're
+   reading this, then paste it straight into that PowerShell window and
+   press Enter. Clipboard text works even when file drag-and-drop
+   doesn't — it's a separate Sandbox setting.
+3. That defines a `Watch-AvResources` function. Now run:
+   ```powershell
+   Get-Process | Sort-Object ProcessName | ForEach-Object { "$($_.Id) $($_.ProcessName) $($_.Path)" }
+   ```
+   Do that once before installing the agent and once after, and compare —
+   the new line(s) are the agent's real process name(s) (installer
+   filenames rarely match).
+4. Then start logging:
+   ```powershell
+   Watch-AvResources -Name 'agent' -IntervalSeconds 2 -DurationSeconds 3600 -OutputPath C:\Users\WDAGUtilityAccount\Desktop\usage.json
+   ```
+   (repeat `-Name` for more than one process pattern). Ctrl+C stops it
+   early; either way `usage.json` ends up with every sample plus a
+   min/avg/max summary.
+
+If clipboard file copy *does* work for you, you can instead just paste
+the script's contents into a new file via PowerShell itself (still no
+Notepad needed) and run it as a normal script:
+```powershell
+notepad  # skip this - instead:
+Set-Content -Path .\monitor_av_resources.ps1 -Value (Get-Clipboard -Raw)
+powershell -ExecutionPolicy Bypass -File .\monitor_av_resources.ps1 -Name agent -DurationSeconds 3600 -OutputPath usage.json
+```
+
+One thing to expect: some EDR/AV products run their core process as a
+*Protected Process Light* (PPL) for self-defense, which blocks even an
+administrator from reading its CPU/handle info. If a process shows up
+with `cpu_percent: 0` the whole time no matter what it's actually doing,
+that's most likely PPL, not a bug in the script — it's the product
+deliberately hiding itself from user-mode tools.
+
+## If Python *is* available: GUI/CLI flavours
 
 - **`av_monitor_gui.py`** — point-and-click app, no terminal needed once
-  it's running. Recommended for everyday use.
+  it's running. Recommended for everyday use, if you have Python.
 - **`monitor_av_resources.py`** — command-line version with the same
   underlying logic, for scripting/automation.
 
-## Setup inside the Windows Sandbox
+### Setup inside the Windows Sandbox
 
 1. Install Python 3 in the sandbox (winget or the python.org installer —
    tick "Add to PATH"; tkinter, needed for the GUI, is included by
@@ -20,7 +68,7 @@ Sandbox. Comes in two flavours:
    sandbox config file). Keep all three `.py` files together — the GUI
    and CLI both import `av_monitor_core.py`.
 
-## Easiest way: the GUI
+### Easiest way: the GUI
 
 ```powershell
 python av_monitor_gui.py
@@ -46,7 +94,7 @@ behind it.)
    the JSON file has been kept up to date the whole time and gets a
    summary (min/avg/max) block added when you stop.
 
-## Building a standalone .exe (no Python needed to run it)
+### Building a standalone .exe (no Python needed to run it)
 
 Windows executables have to be built on Windows - there's no reliable way
 to cross-compile a real `.exe` from Linux, so this has to run inside your
@@ -62,9 +110,9 @@ the resulting `.exe` is fully standalone.
    and Tk runtime, so it runs with no Python installed. That's the file
    you can drop straight into future fresh Sandbox sessions.
 
-## Command-line alternative
+### Command-line alternative
 
-## Step 1 — find out what the agent's real process name is
+#### Step 1 — find out what the agent's real process name is
 
 Installer filenames rarely match the process/service name that ends up
 running, so snapshot before/after:
@@ -83,7 +131,7 @@ The `--diff` output lists every process that appeared after the install
 (name + exe path) — that's how you find the real process name(s) to
 monitor, e.g. `agentsvc.exe`, `edrtray.exe`, whatever it turns out to be.
 
-## Step 2 — monitor CPU/RAM
+#### Step 2 — monitor CPU/RAM
 
 ```powershell
 python monitor_av_resources.py monitor --name agentsvc --name edrtray -i 2 -d 3600 -o usage.json
@@ -105,7 +153,7 @@ The script keeps watching for new matching processes as it runs (so a
 scan engine that only starts during an on-demand scan gets picked up),
 and drops processes that exit.
 
-## Output
+### Output (both CLI and .ps1)
 
 `usage.json` contains, per sample: timestamp, per-process CPU%/RAM, the
 summed total across all matched processes, and system-wide CPU%/RAM for
