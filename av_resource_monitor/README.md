@@ -2,14 +2,51 @@
 
 Small Python + `psutil` tool for measuring how much CPU and RAM the
 `AGENT_665956_V10_15_3_RW.EXE` agent uses once installed in a Windows
-Sandbox.
+Sandbox. Comes in two flavours:
+
+- **`av_monitor_gui.py`** — point-and-click app, no terminal needed once
+  it's running. Recommended for everyday use.
+- **`monitor_av_resources.py`** — command-line version with the same
+  underlying logic, for scripting/automation.
 
 ## Setup inside the Windows Sandbox
 
-1. Install Python 3 in the sandbox (winget or the python.org installer).
+1. Install Python 3 in the sandbox (winget or the python.org installer —
+   tick "Add to PATH"; tkinter, needed for the GUI, is included by
+   default in the standard python.org installer).
 2. `pip install psutil`
-3. Copy `monitor_av_resources.py` into the sandbox (drag-and-drop works in
-   Windows Sandbox, or share a folder via the sandbox config file).
+3. Copy the whole `av_resource_monitor` folder into the sandbox
+   (drag-and-drop works in Windows Sandbox, or share a folder via the
+   sandbox config file). Keep all three `.py` files together — the GUI
+   and CLI both import `av_monitor_core.py`.
+
+## Easiest way: the GUI
+
+```powershell
+python av_monitor_gui.py
+```
+
+(Double-clicking works too if `.py` files are associated with `python.exe`;
+rename to `av_monitor_gui.pyw` first if you don't want a console window
+behind it.)
+
+1. Open it **before** running the installer.
+2. Run `AGENT_665956_V10_15_3_RW.EXE` and let it finish installing.
+3. Back in the app, click **Refresh** — any process that appeared since
+   the app was opened is tagged **NAUJAS** and highlighted yellow, so you
+   don't have to guess the process name (installer filenames rarely match
+   the real service name).
+4. Click the checkbox next to the process(es) that belong to the agent
+   (tick all of them if it runs a service + tray icon + scan engine as
+   separate processes — their usage gets summed and also shown per
+   process).
+5. Set the interval/duration/output file if you want something other
+   than the defaults, click **Start**.
+6. Watch the live table and the CPU/RAM graph. Click **Stop** whenever —
+   the JSON file has been kept up to date the whole time and gets a
+   summary (min/avg/max) block added when you stop.
+
+## Command-line alternative
 
 ## Step 1 — find out what the agent's real process name is
 
