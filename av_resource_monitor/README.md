@@ -46,6 +46,22 @@ behind it.)
    the JSON file has been kept up to date the whole time and gets a
    summary (min/avg/max) block added when you stop.
 
+## Building a standalone .exe (no Python needed to run it)
+
+Windows executables have to be built on Windows - there's no reliable way
+to cross-compile a real `.exe` from Linux, so this has to run inside your
+Windows Sandbox (or any Windows machine) once. After that one-time build,
+the resulting `.exe` is fully standalone.
+
+1. Make sure Python is installed in the sandbox (see Setup above).
+2. Double-click `build_exe.bat` in this folder (or run it from a
+   terminal). It installs `pyinstaller`+`psutil` and packages
+   `av_monitor_gui.py` into `AV_Resource_Monitor.exe`.
+3. Once it finishes, `AV_Resource_Monitor.exe` sits in this folder as a
+   single file. Copy just that file anywhere - it bundles its own Python
+   and Tk runtime, so it runs with no Python installed. That's the file
+   you can drop straight into future fresh Sandbox sessions.
+
 ## Command-line alternative
 
 ## Step 1 — find out what the agent's real process name is
