@@ -1,0 +1,31 @@
+/* Windows resources: the application icon and version block. */
+#include <windows.h>
+
+APPICON ICON "installer/aurora.ico"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     0,1,0,0
+PRODUCTVERSION  0,1,0,0
+FILEFLAGSMASK   0x3fL
+FILEFLAGS       0x0L
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "FileDescription", "Project Aurora - The Last Child (Room One)"
+            VALUE "FileVersion",     "0.1.0 prototype"
+            VALUE "InternalName",    "project-aurora"
+            VALUE "OriginalFilename","ProjectAurora.exe"
+            VALUE "ProductName",     "Project Aurora"
+            VALUE "ProductVersion",  "0.1.0 prototype"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
