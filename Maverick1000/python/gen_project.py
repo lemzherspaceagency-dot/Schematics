@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+"""Generate the .kicad_pro project file and project-local library tables so
+the project opens cleanly in KiCad with the custom SKYWARD_Custom library
+resolved automatically (relative paths, portable to any machine)."""
+
+import json
+
+PROJ_DIR = "/home/user/Schematics/Maverick1000/kicad/SKYWARD-COMPUTE-CARRIER"
+ROOT_UUID = "b6f1a001-0000-4000-8000-000000000001"
+PROJECT = "SKYWARD-COMPUTE-CARRIER"
+
+kicad_pro = {
+    "board": {
+        "design_settings": {
+            "defaults": {
+                "board_outline_line_width": 0.15,
+                "copper_line_width": 0.2,
+                "copper_text_size_h": 1.0,
+                "copper_text_size_v": 1.0,
+                "copper_text_thickness": 0.2,
+                "silk_line_width": 0.15,
+                "silk_text_size_h": 1.0,
+                "silk_text_size_v": 1.0,
+                "silk_text_thickness": 0.15,
+            },
+            "rules": {
+                "min_clearance": 0.15,
+                "min_copper_edge_clearance": 0.3,
+                "min_hole_clearance": 0.25,
+                "min_hole_to_hole": 0.25,
+                "min_silk_clearance": 0.1,
+                "min_text_height": 0.8,
+                "min_text_thickness": 0.13,
+                "min_through_hole_diameter": 0.3,
+                "min_track_width": 0.15,
+                "min_via_annular_width": 0.1,
+                "min_via_diameter": 0.4,
+                "solder_mask_clearance": 0.05,
+                "solder_mask_min_width": 0.1,
+            },
+            "track_widths": [0, 0.15, 0.25, 0.4, 0.6, 1.0],
+            "via_dimensions": [{"diameter": 0.6, "drill": 0.4}],
+        },
+        "layer_presets": [],
+        "physical_stackup": {
+            "copper_finish": "ENIG",
+            "dielectric_constraints": False,
+        },
+    },
+    "boards": [],
+    "cvpcb": {"equivalence_files": []},
+    "erc": {"erc_exclusions": [], "meta": {"version": 0}, "pin_map": [], "rule_severities": {}},
+    "libraries": {"pinned_footprint_libs": [], "pinned_symbol_libs": []},
+    "meta": {"filename": f"{PROJECT}.kicad_pro", "version": 1},
+    "net_settings": {
+        "classes": [
+            {
+                "bus_width": 12, "clearance": 0.15, "diff_pair_gap": 0.25,
+                "diff_pair_via_gap": 0.25, "diff_pair_width": 0.2, "line_style": 0,
+                "microvia_diameter": 0.3, "microvia_drill": 0.1, "name": "Default",
+                "pcb_color": "rgba(0, 0, 0, 0.000)", "schematic_color": "rgba(0, 0, 0, 0.000)",
+                "track_width": 0.25, "via_diameter": 0.6, "via_drill": 0.4, "wire_width": 6,
+            },
+            {
+                "bus_width": 12, "clearance": 0.2, "diff_pair_gap": 0.25,
+                "diff_pair_via_gap": 0.25, "diff_pair_width": 0.2, "line_style": 0,
+                "microvia_diameter": 0.3, "microvia_drill": 0.1, "name": "Power",
+                "pcb_color": "rgba(200, 52, 52, 1.000)", "schematic_color": "rgba(0, 0, 0, 0.000)",
+                "track_width": 0.8, "via_diameter": 0.8, "via_drill": 0.5, "wire_width": 6,
+            },
+        ],
+        "meta": {"version": 3},
+        "net_colors": None,
+        "netclass_assignments": {
+            "BATT_IN": "Power", "BATT_F": "Power", "VBAT_BUS": "Power",
+            "VBAT_MAIN_OUT": "Power", "VBAT_P1_OUT": "Power", "P1_F": "Power",
+            "+5V0": "Power", "+3V3": "Power", "GND": "Power",
+            "TERRA_PWR": "Power", "TERRA_BATT_RAW": "Power",
+            "DOCK_PWR_RAW": "Power", "DOCK_F": "Power", "DOCK_OK": "Power",
+            "CHG_SW": "Power", "5V0_SW": "Power", "5V0_PRE": "Power",
+        },
+        "netclass_patterns": [],
+    },
+    "pcbnew": {"last_paths": {"gencad": "", "idf": "", "netlist": "", "specctra_dsn": "", "step": "", "vrml": ""},
+               "page_layout_descr_file": ""},
+    "schematic": {
+        "annotate_start_num": 0,
+        "drawing": {"default_line_thickness": 6.0, "default_text_size": 50.0,
+                     "intersheets_ref_show": False},
+        "legacy_lib_dir": "", "legacy_lib_list": [],
+        "meta": {"version": 1},
+        "net_format_name": "KiCad",
+        "page_layout_descr_file": "",
+        "spice_current_sheet_as_root": False,
+        "spice_external_command": "spice \"%I\"",
+        "subpart_first_id": 65, "subpart_id_separator": 0,
+    },
+    "sheets": [[ROOT_UUID, ""]],
+    "text_variables": {
+        "COMPANY": "Frontier Robotics",
+        "PRODUCT": "Maverick 1000",
+        "CODENAME": "SKYWARD",
+        "REVISION": "A",
+    },
+}
+
+with open(f"{PROJ_DIR}/{PROJECT}.kicad_pro", "w") as f:
+    json.dump(kicad_pro, f, indent=2)
+print(f"Wrote {PROJ_DIR}/{PROJECT}.kicad_pro")
+
+# ---------------------------------------------------------------------------
+# Project-local library tables: register SKYWARD_Custom with a relative path
+# so the project is portable (works once copied to Windows / anywhere else).
+# ---------------------------------------------------------------------------
+sym_table = '''(sym_lib_table
+  (version 7)
+  (lib (name "SKYWARD_Custom")(type "KiCad")(uri "${KIPRJMOD}/../libraries/symbols/SKYWARD_Custom.kicad_sym")(options "")(descr "Maverick 1000 custom symbols: CM4 connectors, Terra bus, LM74610, BQ25792"))
+)
+'''
+fp_table = '''(fp_lib_table
+  (version 7)
+  (lib (name "SKYWARD_Custom")(type "KiCad")(uri "${KIPRJMOD}/../libraries/footprints/SKYWARD_Custom.pretty")(options "")(descr "Maverick 1000 custom footprints: Hirose DF40C-100DS-0.4V, Hirose DF13-22DP-1.25V"))
+)
+'''
+with open(f"{PROJ_DIR}/sym-lib-table", "w") as f:
+    f.write(sym_table)
+with open(f"{PROJ_DIR}/fp-lib-table", "w") as f:
+    f.write(fp_table)
+print(f"Wrote {PROJ_DIR}/sym-lib-table and fp-lib-table")

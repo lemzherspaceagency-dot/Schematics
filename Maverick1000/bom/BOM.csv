@@ -1,0 +1,69 @@
+Refs,Qty,Value,MPN,Manufacturer,Footprint,Description,Group
+"C11, C12, C13",3,100nF,GRM155R71H104KE14D,Murata,Capacitor_SMD:C_0402_1005Metric,CM4 +5V0 decoupling,cm4
+"C14, C15",2,10uF,GRM188R61A106KE69D,Murata,Capacitor_SMD:C_0603_1608Metric,CM4 +5V0 bulk decoupling,cm4
+J1,1,CM4_J1,DF40C-100DS-0.4V(51),Hirose Electric,SKYWARD_Custom:Hirose_DF40C-100DS-0.4V,"100-pos 0.4mm SMD receptacle, CM4 primary connector (low/med-speed IO + power)",cm4
+J10,1,DEBUG,PBC06SAAN,Sullins,Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical,CM4 UART console + boot/reset header,cm4
+J2,1,CM4_J2,DF40C-100DS-0.4V(51),Hirose Electric,SKYWARD_Custom:Hirose_DF40C-100DS-0.4V,"100-pos 0.4mm SMD receptacle, CM4 secondary connector (high-speed IO + power)",cm4
+R7,1,10k,RC0402FR-0710KL,Yageo,Resistor_SMD:R_0402_1005Metric,nRPIBOOT pull-up,cm4
+R8,1,10k,RC0402FR-0710KL,Yageo,Resistor_SMD:R_0402_1005Metric,RUN_PG_N pull-up,cm4
+R9,1,10k,RC0402FR-0710KL,Yageo,Resistor_SMD:R_0402_1005Metric,EEPROM_nWP pull-up (default: boot config write-protected),cm4
+SW1,1,nRPIBOOT,B3U-1000P,Omron,Button_Switch_SMD:SW_SPST_B3U-1000P,"Tactile SW, hold to force CM4 USB boot mode",cm4
+SW2,1,RUN,B3U-1000P,Omron,Button_Switch_SMD:SW_SPST_B3U-1000P,"Tactile SW, CM4 reset",cm4
+C1,1,22uF,GRM32ER71V226KE15L,Murata,Capacitor_SMD:C_1210_3225Metric,Main battery input bulk cap,power
+C16,1,100nF,GRM155R71H104KE14D,Murata,Capacitor_SMD:C_0402_1005Metric,U1 (LM74610) VCAP charge-pump cap,power
+C17,1,100nF,GRM155R71H104KE14D,Murata,Capacitor_SMD:C_0402_1005Metric,U2 (LM74610) VCAP charge-pump cap,power
+C18,1,10nF,GRM155R71H103KA88D,Murata,Capacitor_SMD:C_0402_1005Metric,5V buck BOOT bootstrap cap,power
+C2,1,22uF,GRM32ER71V226KE15L,Murata,Capacitor_SMD:C_1210_3225Metric,Terra P1 input bulk cap,power
+C3,1,10uF,GRM21BR61H106KE43L,Murata,Capacitor_SMD:C_0805_2012Metric,5V buck input cap,power
+C4,1,22uF,GRM21BR61A226ME44L,Murata,Capacitor_SMD:C_0805_2012Metric,5V buck output cap,power
+C5,1,1uF,GRM188R61A105KA61D,Murata,Capacitor_SMD:C_0603_1608Metric,3V3 LDO input cap,power
+C6,1,1uF,GRM188R61A105KA61D,Murata,Capacitor_SMD:C_0603_1608Metric,3V3 LDO output cap,power
+C7,1,10uF,GRM21BR61H106KE43L,Murata,Capacitor_SMD:C_0805_2012Metric,BQ25792 input cap,power
+C8,1,10uF,GRM21BR61H106KE43L,Murata,Capacitor_SMD:C_0805_2012Metric,BQ25792 SYS/output cap,power
+"C9, C10",2,100nF,GRM155R71H104KE14D,Murata,Capacitor_SMD:C_0402_1005Metric,BQ25792 decoupling,power
+D1,1,SMBJ24A,SMBJ24A,Littelfuse,Diode_SMD:D_SMB,"Main battery input TVS clamp, 24V standoff",power
+D2,1,SMBJ24A,SMBJ24A,Littelfuse,Diode_SMD:D_SMB,"Terra P1 input TVS clamp, 24V standoff",power
+D3,1,SS34,SS34,Onsemi,Diode_SMD:D_SMA,Dock input reverse-polarity protection,power
+D4,1,SMBJ24A,SMBJ24A,Littelfuse,Diode_SMD:D_SMB,Dock input TVS clamp,power
+F1,1,3A_PTC,1206L300/16DR,Bourns,Fuse:Fuse_1206_3216Metric,Main battery input resettable PTC fuse,power
+F2,1,3A_PTC,1206L300/16DR,Bourns,Fuse:Fuse_1206_3216Metric,Terra P1 input resettable PTC fuse,power
+F3,1,1.5A_PTC,1206L150/16DR,Bourns,Fuse:Fuse_1206_3216Metric,Dock charge input PTC fuse,power
+F4,1,2A_PTC,1206L200/16DR,Bourns,Fuse:Fuse_1206_3216Metric,Terra TERRA_PWR independent fuse,power
+J3,1,BATT_IN,SM02B-GHS-TB,JST,Connector_JST:JST_GH_SM02B-GHS-TB_1x02-1MP_P1.25mm_Horizontal,4S LiHV main battery low-current tap,power
+J4,1,DOCK,SM03B-GHS-TB,JST,Connector_JST:JST_GH_SM03B-GHS-TB_1x03-1MP_P1.25mm_Horizontal,"Dock power + presence-detect, wired to skid contacts",power
+L1,1,10uH,XAL4020-103MEB,Coilcraft,Inductor_SMD:L_Coilcraft_XAL4020-XXX,5V buck inductor,power
+L2,1,2.2uH,XAL4020-222MEB,Coilcraft,Inductor_SMD:L_Coilcraft_XAL4020-XXX,BQ25792 charge inductor,power
+Q1,1,SQJ438EP,SQJ438EP-T1_GE3,Vishay Siliconix,Package_TO_SOT_SMD:SOT-23,"P-MOSFET, main battery ORing pass element",power
+Q2,1,SQJ438EP,SQJ438EP-T1_GE3,Vishay Siliconix,Package_TO_SOT_SMD:SOT-23,"P-MOSFET, Terra P1 ORing pass element",power
+R1,1,10.0k,RC0402FR-0710KL,Yageo,Resistor_SMD:R_0402_1005Metric,5V buck FB divider top,power
+R2,1,3.09k,RC0402FR-073K09L,Yageo,Resistor_SMD:R_0402_1005Metric,5V buck FB divider bottom,power
+R3,1,5.6k,RC0402FR-075K6L,Yageo,Resistor_SMD:R_0402_1005Metric,BQ25792 ILIM/PROG set resistor,power
+R5,1,10k,RC0402FR-0710KL,Yageo,Resistor_SMD:R_0402_1005Metric,GPIO_DOCK_DET pull-up (dock presence detect),power
+RSH1,1,10mOhm,WSL1206R0100FEA,Vishay,Resistor_SMD:R_1206_3216Metric,Main battery current shunt,power
+RSH2,1,10mOhm,WSL1206R0100FEA,Vishay,Resistor_SMD:R_1206_3216Metric,Terra P1 current shunt,power
+RSH3,1,10mOhm,WSL1206R0100FEA,Vishay,Resistor_SMD:R_1206_3216Metric,+5V0 CM4 rail current shunt,power
+U1,1,LM74610QDBVRQ1,LM74610QDBVRQ1,Texas Instruments,Package_TO_SOT_SMD:SOT-23-6,"Ideal-diode ORing controller, main battery",power
+U2,1,LM74610QDBVRQ1,LM74610QDBVRQ1,Texas Instruments,Package_TO_SOT_SMD:SOT-23-6,"Ideal-diode ORing controller, Terra P1",power
+U3,1,BQ25792RQMR,BQ25792RQMR,Texas Instruments,Package_DFN_QFN:QFN-24-1EP_4x4mm_P0.5mm_EP2.6x2.6mm,"1-4S I2C buck charger, dock -> main battery",power
+U4,1,TPS5430DDA,TPS5430DDA,Texas Instruments,Package_SO:TI_SO-PowerPAD-8_ThermalVias,"3A sync buck, 5.5-36V in, adjustable -> set for +5V0",power
+U5,1,AP2112K-3.3TRG1,AP2112K-3.3TRG1,Diodes Inc.,Package_TO_SOT_SMD:SOT-23-5,"600mA LDO, +5V0 -> +3V3 (low-noise, GNSS-friendly)",power
+U6,1,INA3221AIPW,INA3221AIPW,Texas Instruments,Package_SO:TSSOP-16_4.4x5mm_P0.65mm,"3-ch I2C V/I monitor: main batt, P1 batt, +5V0",power
+J5,1,FC,SM06B-GHS-TB,JST,Connector_JST:JST_GH_SM06B-GHS-TB_1x06-1MP_P1.25mm_Horizontal,Flight controller UART/telemetry link,periph
+J6,1,GNSS,SM06B-GHS-TB,JST,Connector_JST:JST_GH_SM06B-GHS-TB_1x06-1MP_P1.25mm_Horizontal,BN-220 GNSS UART + PPS,periph
+J7,1,ELRS,SM04B-GHS-TB,JST,Connector_JST:JST_GH_SM04B-GHS-TB_1x04-1MP_P1.25mm_Horizontal,ELRS receiver UART,periph
+J8,1,TOF,SM05B-SRSS-TB,JST,Connector_JST:JST_SH_SM05B-SRSS-TB_1x05-1MP_P1.00mm_Horizontal,VL53L5CX-SATEL I2C + power,periph
+J9,1,TERRA,DF13-22DP-1.25V,Hirose Electric,SKYWARD_Custom:Hirose_DF13-22DP-1.25V,Standardized Terra payload bus,periph
+JP1,1,XSHUT_SEL,-,-,Jumper:SolderJumper-3_P1.3mm_Bridged12_Pad1.0x1.5mm,VL53L5CX XSHUT source select: free-run (default) vs CM4 GPIO,periph
+LED1,1,STATUS,KP-1608SURCK,Kingbright,LED_SMD:LED_0603_1608Metric,CM4-controlled status LED,periph
+R10,1,4.7k,RC0402FR-074K7L,Yageo,Resistor_SMD:R_0402_1005Metric,I2C0 SDA pull-up (VL53L5CX/INA3221/BQ25792 bus),periph
+R11,1,4.7k,RC0402FR-074K7L,Yageo,Resistor_SMD:R_0402_1005Metric,I2C0 SCL pull-up,periph
+R12,1,4.7k,RC0402FR-074K7L,Yageo,Resistor_SMD:R_0402_1005Metric,I2C1 SDA pull-up (Terra bus),periph
+R13,1,4.7k,RC0402FR-074K7L,Yageo,Resistor_SMD:R_0402_1005Metric,I2C1 SCL pull-up,periph
+R14,1,10k,RC0402FR-0710KL,Yageo,Resistor_SMD:R_0402_1005Metric,TERRA_PRESENCE_N pull-up,periph
+R15,1,10k,RC0402FR-0710KL,Yageo,Resistor_SMD:R_0402_1005Metric,"VL53L5CX XSHUT default pull-up (solder-jumper option, see JP1)",periph
+R6,1,330,RC0603FR-07330RL,Yageo,Resistor_SMD:R_0603_1608Metric,Status LED current limit,periph
+TP1,1,VBAT_BUS,-,-,TestPoint:TestPoint_Pad_D1.5mm,"Test point, aircraft power bus",tp
+TP2,1,+5V0,-,-,TestPoint:TestPoint_Pad_D1.5mm,"Test point, +5V0 rail",tp
+TP3,1,+3V3,-,-,TestPoint:TestPoint_Pad_D1.5mm,"Test point, +3V3 rail",tp
+TP4,1,GND,-,-,TestPoint:TestPoint_Pad_D1.5mm,"Test point, ground reference",tp
+"MH1, MH2, MH3, MH4",4,M2.5,-,-,MountingHole:MountingHole_2.7mm_M2.5,Mounting hole,mech

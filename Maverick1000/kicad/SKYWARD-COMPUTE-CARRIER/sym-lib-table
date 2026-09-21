@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "SKYWARD_Custom")(type "KiCad")(uri "${KIPRJMOD}/../libraries/symbols/SKYWARD_Custom.kicad_sym")(options "")(descr "Maverick 1000 custom symbols: CM4 connectors, Terra bus, LM74610, BQ25792"))
+)
