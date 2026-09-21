@@ -74,8 +74,8 @@ schematic note.
 | 7 | TERRA_MOSI | SPI CM4 -> module |
 | 8 | TERRA_MISO | SPI module -> CM4 |
 | 9 | TERRA_CS_N | SPI chip select |
-| 10 | UART4_TXD | CM4 -> module (dedicated 5th UART instance) |
-| 11 | UART4_RXD | module -> CM4 |
+| 10 | *(reserved, NC)* | Originally planned as a dedicated Terra UART; removed -- the CM4 only has 3 UART instances free of I2C0/SPI0 pin conflicts, all allocated to FC/GNSS/ELRS. See `CM4_PIN_VERIFICATION.md`. |
+| 11 | *(reserved, NC)* | See pin 10 |
 | 12 | TERRA_USB_DP | USB2 HS data+ (high-bandwidth sensor stream, e.g. L1 point cloud, V1/T1 imagery) |
 | 13 | TERRA_USB_DN | USB2 HS data- |
 | 14 | TERRA_GPIO_A | General-purpose, module-defined (e.g. payload power-good out) |
@@ -120,10 +120,10 @@ board on its own high-current pads, per `architecture.md` §4.
 |---|---|---|
 | 1 | GND | |
 | 2 | +3V3 | (reference only, do not source significant current from FTDI-style adapters) |
-| 3 | CM4_UART_CONSOLE_TX | CM4 primary UART console TX |
-| 4 | CM4_UART_CONSOLE_RX | CM4 primary UART console RX |
-| 5 | CM4_nRPIBOOT | Pull low at power-up to force CM4 USB boot/rpiboot mode (via onboard tactile button, header pin brought out in parallel for automated test jigs) |
-| 6 | CM4_RUN_N | Pull low to reset CM4 (onboard button + header pin) |
+| 3 | UART0_TXD0 | Shares the FC UART0 net (J1 pin 55) -- do not mate a debug adapter here while the FC is also connected to J_FC |
+| 4 | UART0_RXD0 | Shares the FC UART0 net (J1 pin 51) -- see pin 3 |
+| 5 | nRPIBOOT | Pull low at power-up to force CM4 USB boot/rpiboot mode (via onboard tactile button, header pin brought out in parallel for automated test jigs) |
+| 6 | RUN_PG | Pull low to reset CM4 (onboard button + header pin) |
 
 ## CM4 module connectors (J1, J2 — Hirose DF40C-100DS-0.4V, 100-pin each)
 
@@ -136,25 +136,29 @@ signal (e.g., this board does not use HDMI, CSI/DSI, Ethernet RGMII, PCIe,
 or the second SD interface — none of those are required by any stated
 Maverick 1000 requirement).
 
-Nets brought out from J1/J2 in this design (functional names — **pin
-numbers must be verified against the official Raspberry Pi CM4 Datasheet
-before fabrication**, see `assumptions.md` #1):
+**Pin numbers below are verified** — see `CM4_PIN_VERIFICATION.md` for the
+full methodology and source list (the official `raspberrypi/linux` kernel
+device tree for GPIO ALT-function assignments, cross-checked against a
+shipped commercial CM4 product's open-source schematic and five further
+independent open-source CM4 carrier board projects). This replaced an
+earlier unverified pin assignment; **only 3 UART instances are actually
+available** given the I2C0/SPI0 pin-sharing constraint (see that doc) —
+FC, GNSS and ELRS each get one; the debug console shares the FC UART; a
+previously-planned dedicated Terra UART was removed.
 
-| Function | Net name(s) |
-|---|---|
-| Power | VDD_5V0 (multiple pins, per datasheet current-sharing requirement) |
-| Ground | GND (multiple pins, per datasheet) |
-| Module control | RUN_PG_N, EEPROM_nWP, nRPIBOOT, GLOBAL_EN (tied directly to +3V3 for normal always-enabled operation) |
-| Primary UART (-> FC) | UART0_TXD0, UART0_RXD0 |
-| Secondary UART (-> GNSS) | UART1_TXD1, UART1_RXD1 |
-| Tertiary UART (-> ELRS) | UART2_TXD, UART2_RXD (CM4 mini-UART or PL011 alt function per datasheet) |
-| Console UART (-> debug header) | UART3_TXD, UART3_RXD |
-| Terra UART (-> J_TERRA) | UART4_TXD, UART4_RXD (5th PL011-capable instance on alternate GPIO function) |
-| I2C bus 0 (-> VL53L5CX, INA3221, BQ25792) | I2C0_SDA, I2C0_SCL |
-| I2C bus 1 (-> Terra) | I2C1_SDA, I2C1_SCL |
-| SPI0 (-> Terra) | SPI0_SCLK, SPI0_MOSI, SPI0_MISO, SPI0_CE0_N |
-| USB2 port 0 (-> Terra high-bandwidth) | USB2_0_DP, USB2_0_DN |
-| GPIO (dock detect, PPS, IRQs, triggers, resets, status LED, nRPIBOOT/RUN header) | GPIO_DOCK_DET, GPIO_GNSS_PPS, GPIO_TOF_INT, GPIO_TERRA_IRQ, GPIO_TERRA_TRIG, GPIO_TERRA_A, GPIO_TERRA_B, GPIO_FC_RESET, GPIO_FC_AUX, GPIO_STATUS_LED |
+| Function | Net name(s) | J1/J2 pin(s) |
+|---|---|---|
+| Power (+5V0 in) | +5V0 | J1: 77, 79, 81, 83, 85, 87 |
+| Ground | GND | J1: 1,2,7,8,13,14,22,23,32,33,42,43,52,53,59,60,65,66,71,74,98; J2: 1,7,8,13,14,19,20,25,26 |
+| Module control | RUN_PG (J1:92), EEPROM_nWP (J1:20), nRPIBOOT (J1:93), GLOBAL_EN (J1:99, tied to +3V3) | see left |
+| UART0 (-> FC + debug header) | UART0_TXD0 (J1:55), UART0_RXD0 (J1:51) | GPIO14/15 |
+| UART3 (-> GNSS) | UART3_TXD3 (J1:54), UART3_RXD3 (J1:34) | GPIO4/5 |
+| UART5 (-> ELRS) | UART5_TXD5 (J1:31), UART5_RXD5 (J1:28) | GPIO12/13 |
+| I2C bus 0 (-> VL53L5CX, INA3221, BQ25792) | I2C0_SDA (J1:36), I2C0_SCL (J1:35) | GPIO0/1 |
+| I2C bus 1 (-> Terra) | I2C1_SDA (J1:58), I2C1_SCL (J1:56) | GPIO2/3 |
+| SPI0 (-> Terra) | SPI0_SCLK (J1:38), SPI0_MOSI (J1:44), SPI0_MISO (J1:40), SPI0_CE0_N (J1:39) | GPIO11/10/9/8 |
+| USB2 OTG (-> Terra high-bandwidth) | USB2_0_DP (J2:5), USB2_0_DN (J2:3), ID (J2:1, tied GND for host mode) | — |
+| GPIO (dock detect, PPS, IRQs, triggers, status LED, FC reset/aux) | GPIO_DOCK_DET (J1:30/GPIO6), GPIO_GNSS_PPS (J1:29/GPIO16), GPIO_TOF_INT (J1:50/GPIO17), GPIO_TERRA_IRQ (J1:49/GPIO18), GPIO_TERRA_TRIG (J1:26/GPIO19), GPIO_TERRA_A (J1:27/GPIO20), GPIO_TERRA_B (J1:25/GPIO21), GPIO_FC_RESET (J1:46/GPIO22), GPIO_FC_AUX (J1:47/GPIO23), GPIO_STATUS_LED (J1:45/GPIO24) | see left |
 
 PCIe, USB3, HDMI0/1, CSI0/1, DSI0/1, Ethernet RGMII, and the second SD
 interface are present on the physical connector (mostly on J2) but are

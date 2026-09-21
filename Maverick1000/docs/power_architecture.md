@@ -43,10 +43,16 @@
   dock contacts themselves only ever carry raw power + ground + a simple
   presence-detect line, keeping the mechanical skid-contact interface to 3
   pads.
-- **U4 — TPS54331 (TI), 3 A sync buck, 28 V abs-max input:** `VBAT_BUS`
-  (up to 17.4 V) -> regulated +5.0 V for the CM4 (worst-case ~3 A per the
-  CM4 datasheet power budget) and the Terra payload power pins (fused to
-  2 A independently so a shorted/faulted payload cannot brown out the CM4).
+- **U4 — TPS5430DDA (TI), 3 A non-synchronous buck, 36 V abs-max input:**
+  `VBAT_BUS` (up to 17.4 V) -> regulated +5.0 V for the CM4 (worst-case
+  ~3 A per the CM4 datasheet power budget) and the Terra payload power
+  pins (fused to 2 A independently so a shorted/faulted payload cannot
+  brown out the CM4). **Non-synchronous** means the IC only integrates the
+  high-side switch — an external Schottky catch diode (D5, SS34) from the
+  PH switch node to GND is required and carries the inductor current
+  during every off-cycle; this was a genuine missing component in an
+  earlier revision, found and fixed during the Rev A audit pass (see
+  `docs/OTHER_COMPONENTS_VERIFICATION.md`).
 - **U5 — AP2112K-3.3 LDO, 600 mA:** +5V0 -> +3V3 for all sensor/logic rails
   (GNSS, ELRS RX, VL53L5CX, ID pull-ups, Terra low-speed logic). An LDO
   (not a switcher) is used here specifically to keep switching noise away

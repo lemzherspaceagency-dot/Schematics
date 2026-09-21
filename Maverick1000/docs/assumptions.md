@@ -2,18 +2,24 @@
 
 Ordered by risk to a first-fabrication build.
 
-1. **CM4 J1/J2 exact pin numbers not re-verified against the live datasheet.**
-   This build environment's outbound network access to
-   `datasheets.raspberrypi.com` (and mirrors on seeedstudio.com, pi4j.com)
-   was blocked by the sandbox's egress proxy, so the ~45 CM4 signals used
-   in this design were pin-mapped from the engineer's working knowledge of
-   the published Raspberry Pi CM4 pinout rather than a live re-check of the
-   PDF. **Action required before fabrication:** cross-reference every
-   `CM4_J1_*` / `CM4_J2_*` net in the schematic against the official
-   Raspberry Pi Compute Module 4 Datasheet pinout table (J1/J2 tables).
-   The functional signal list itself (which UARTs/I2C/SPI/GPIO are used)
-   is correct; only the exact physical pin numbers need the final check.
-   This is a datasheet cross-reference task, not a redesign.
+1. **RESOLVED (was: CM4 J1/J2 exact pin numbers not re-verified).** This
+   build environment's outbound network access to
+   `datasheets.raspberrypi.com` remains blocked (confirmed again in the
+   audit pass), so the primary PDF still could not be fetched directly.
+   Instead, every CM4 pin used in this design was re-derived from the
+   official `raspberrypi/linux` kernel device tree (authoritative for GPIO
+   ALT-function pin muxing) and cross-checked pin-for-pin against a shipped
+   commercial CM4 product's open-source schematic (Home Assistant Yellow)
+   plus five further independent open-source CM4 carrier board projects.
+   This caught and fixed a real error: the original draft assumed 5
+   independent UART instances were available and invented pin numbers for
+   all of them; the CM4 actually has only 3 UART instances free of I2C0/
+   SPI0 pin conflicts. All CM4 net assignments in `design_data.py` were
+   corrected accordingly. Full methodology, sources, and the corrected pin
+   table are in `docs/CM4_PIN_VERIFICATION.md`. **Residual, non-blocking
+   risk:** this table has still not been diffed against the primary PDF
+   directly -- recommended once before a production (not prototype) run,
+   see `docs/FINAL_DESIGN_AUDIT.md`.
 
 2. **DF40C-100DS-0.4V footprint geometry is a documented approximation.**
    The generated footprint uses 0.4 mm pitch, 2 rows x 50 contacts per
@@ -50,26 +56,53 @@ Ordered by risk to a first-fabrication build.
    PCB, not hard-wired, specifically so this can be decided without a
    respin.
 
-7. **Routing completeness (Rev A deliverable scope): no copper traces are
-   pre-routed.** This Rev A package places all 75 components with zero
-   courtyard overlaps and zero out-of-board footprints (both verified
-   programmatically against the actual KiCad footprint geometry), defines
-   all 60 nets with pads correctly assigned (cross-checked pin-for-pin
-   against `python/design_data.py`), and pours (unfilled, see #10) GND
-   zones on all 4 copper layers. Every net is therefore visible as
-   ratsnest/airwires when the project is opened in KiCad, ready to route.
-   An earlier version of this generator also drew ~40 "critical power
-   path" tracks by connecting pads that were logically adjacent in the
-   netlist. When the component layout was reworked to eliminate courtyard
-   overlaps (see below), a self-check that compares every track segment
-   against every pad not on its own net caught that several of those
-   blindly-drawn tracks now crossed unrelated pads — i.e. the script would
-   have silently shipped latent shorts. Rather than hand-verify ~40 routes
-   against a layout with no visual feedback loop, all pre-routing was
-   removed. Completing the copper (power path first, then signal fan-out)
-   in KiCad's interactive router, or with an autorouter, is the main
-   remaining task before this board is fabrication-ready — see the
-   "Remaining Risks" list in the final project report.
+7. **Routing completeness (Rev A audit pass): the board is PARTIALLY
+   routed, most nets remain ratsnest, and this is a fabrication blocker.**
+   This package places all 86 components with zero courtyard overlaps and
+   zero out-of-board footprints (both verified programmatically against
+   the actual KiCad footprint geometry), defines all 71 nets with pads
+   correctly assigned (cross-checked pin-for-pin against
+   `python/design_data.py` and `kicad-cli sch export netlist`), and pours
+   (unfilled, see #10) GND zones on all 4 copper layers.
+
+   During this audit pass, a purpose-built point-to-point router
+   (`python/gen_routes.py`) was used to attempt the highest-priority
+   connections (main battery paths, ORing, buck/LDO converter loops, the
+   dock charging path including the BQ25792 application circuit, and
+   current-sense taps) in priority order, verifying every candidate track
+   against every foreign-net pad and every already-placed foreign-net
+   track segment before committing it — never routing a connection it
+   could not prove collision-free. **That self-verification initially had
+   a real bug** (its segment-distance check missed the case of two tracks
+   crossing mid-span, not just near an endpoint) which real KiCad DRC
+   caught as actual 0.0 mm-clearance short circuits between placed tracks
+   on different nets — the router's own "verified collision-free" claim
+   was wrong for 5 of its first 18 successes (of 57 attempted at that
+   point). The bug is fixed (see `docs/ROUTING_STATUS.md` for the geometry
+   detail) and the board re-routed with the corrected, stricter checker; a
+   second real-DRC run confirms zero track-vs-track clearance violations
+   remain. Separately, the power-path review (see #11 below) found U4's
+   buck converter was missing a required catch diode; fixing it added a
+   component (D5) and 2 more priority connections, for 59 total attempted.
+   Final, honest result: **13 of 59 succeeded as real, DRC-confirmed-clean
+   copper; 46 remain ratsnest, including every power-converter switch
+   node** (TPS5430 PH→L1, the new PH→D5 catch-diode connection, both
+   BQ25792 SW1/SW2→L2 nodes, the BQ25792 BAT→main-pack return, and the
+   charger VBUS input). **Every net outside that priority set — all of
+   I2C, UART, SPI, USB, and GPIO/control, the large majority of the
+   board's 307 total connections — was never attempted and remains pure
+   ratsnest.** The full connection-by-connection breakdown, the collision-
+   checker bug, and why the router could not do better (tight,
+   non-router-aware component placement inherited from the original
+   layout; this is a simple point-to-point router, not a maze router — it
+   cannot hop layers or rip up a placed track to make room), is in
+   `docs/ROUTING_STATUS.md`. Completing the copper — most urgently the
+   five unrouted power-converter switch/catch-diode/VBUS nodes — with
+   KiCad's real interactive router is the single largest remaining task
+   before this board is fabrication-ready. Real KiCad DRC (see
+   `docs/ERC_STATUS.md`) also found 90 real pad-to-pad clearance
+   violations from tight component placement, independent of routing — a
+   second, separate blocker that a placement rework needs to address.
 
    The placement itself follows a deliberate zone plan (documented in
    `python/gen_pcb.py`): CM4 connectors + decoupling at the top, the power
@@ -92,23 +125,48 @@ Ordered by risk to a first-fabrication build.
    airframe) is a reasonable Rev B optimization once routing is complete
    and the real mass budget is checked against `architecture.md` §7.
 
-9. **BQ25792 charger schematic symbol is simplified to the 8 nets used in
-   Rev A** (VAC1, GND, SW, VDD_LOGIC, SDA, SCL, PROG, PGND) rather than its
-   full 24-pin QFN pinout, since no correct pin-accurate KiCad symbol for
-   this recent part was available in this environment's offline library.
-   The footprint IS the real 24-pin QFN-24 1EP package. Before fabrication,
-   reconcile the schematic pin-for-pin against the BQ25792 datasheet
-   (most of the remaining pins are GND/NC/additional VAC2-USB-input pins
-   not used by this design's single-input charge path) and update the
-   footprint pad-to-net assignment for the currently-unassigned pads.
+9. **RESOLVED (was: BQ25792 simplified to 8 fictional pins on a QFN-24
+   footprint).** The real part is a 29-pin WQFN (not 24), with pin names
+   that bear no resemblance to the placeholder used in the first draft.
+   The schematic and footprint now carry the real, verified 29-pin
+   pinout (plus the exposed pad) with a complete single-input application
+   circuit (input blocking FET pair, bootstrap network, buck-boost
+   inductor, TS/ILIM_HIZ/PROG biasing, I2C, interrupt routed to a spare
+   CM4 GPIO). Full detail, sources, and the specific remaining
+   uncertainties (the BTST1 bootstrap cap reference node, and the exact
+   ILIM_HIZ/PROG/TS resistor values, which need the datasheet's sizing
+   equations, not just its pinout) are in `docs/BQ25792_VERIFICATION.md`.
 
-10. **Copper zones (GND pour, all 4 layers) are written unfilled.** KiCad
-    7.0.11's `ZONE_FILLER.Fill()` reliably segfaults when called from this
-    headless Python environment (reproduced in isolation with a trivial
-    single-zone board, unrelated to this design's content -- looks like a
-    missing GUI-context dependency in this specific KiCad build). The zone
-    outlines, layers and net assignment are all correctly written to the
-    `.kicad_pcb` file; opening the project in a normal KiCad install and
-    saving (or Edit > Fill All Zones, hotkey B) fills them immediately --
-    this is standard, expected KiCad behavior and not a sign of an
-    incomplete design.
+10. **Copper zones (GND pour, all 4 layers) are written unfilled, and this
+    audit pass confirmed there is no automated way to fill them in this
+    environment — treat it as a hard fabrication blocker, not a cosmetic
+    gap.** KiCad 7.0.11's `ZONE_FILLER.Fill()` reliably segfaults when
+    called from this headless Python environment; this was re-confirmed
+    during the audit both as a direct call and under `xvfb-run`, with
+    `faulthandler` showing the crash is deep inside KiCad's C++ zone-fill
+    code, not something catchable or retriable from Python. It was also
+    confirmed during this audit that `kicad-cli pcb export gerbers` does
+    **not** fill zones as part of exporting — inspecting the actual
+    generated F_Cu Gerber content shows only pad-flash (D03) commands, no
+    region-fill (G36/G37) commands. **This means Gerbers generated from
+    this project today contain zero ground-plane copper on every layer**,
+    regardless of the zone boundaries being correctly defined in the
+    `.kicad_pcb` source. The zone outlines, layers and net assignment are
+    all correctly written and will fill correctly the moment the project
+    is opened in a normal (non-headless) KiCad install and saved, or via
+    Edit > Fill All Zones (hotkey B) — but until that happens at least
+    once and the result is re-exported, no ground plane exists in any
+    output this project can currently produce. See
+    `docs/ROUTING_STATUS.md` for how this compounds with the routing gap
+    in #7.
+
+11. **RESOLVED (was: undiscovered — U4's TPS5430 buck converter had no
+    catch diode).** Found during this audit's dedicated power-path review:
+    TPS5430 is a non-synchronous buck (integrated high-side switch only),
+    confirmed by cross-referencing 6 independent open-source designs on
+    GitHub that all place an external Schottky catch diode from the
+    switch node (PH) to GND. The pre-audit design had none at all — the
+    converter could not have regulated correctly if fabricated as-is.
+    Fixed: added D5 (SS34) from `5V0_SW` to `GND`. See
+    `docs/OTHER_COMPONENTS_VERIFICATION.md` and
+    `docs/power_architecture.md`.

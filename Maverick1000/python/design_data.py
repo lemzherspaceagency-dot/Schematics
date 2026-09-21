@@ -28,11 +28,11 @@ class Component:
 # ---------------------------------------------------------------------------
 COMPONENTS: list[Component] = [
     # ---- CM4 module connectors -------------------------------------------------
-    Component("J1", "SKYWARD_Custom:CM4_Connector_100", "SKYWARD_Custom:Hirose_DF40C-100DS-0.4V",
+    Component("J1", "SKYWARD_Custom:CM4_Connector_100_J1", "SKYWARD_Custom:Hirose_DF40C-100DS-0.4V",
                "CM4_J1", "DF40C-100DS-0.4V(51)", "Hirose Electric",
                "100-pos 0.4mm SMD receptacle, CM4 primary connector (low/med-speed IO + power)",
                group="cm4", footprint_group="cm4conn"),
-    Component("J2", "SKYWARD_Custom:CM4_Connector_100", "SKYWARD_Custom:Hirose_DF40C-100DS-0.4V",
+    Component("J2", "SKYWARD_Custom:CM4_Connector_100_J2", "SKYWARD_Custom:Hirose_DF40C-100DS-0.4V",
                "CM4_J2", "DF40C-100DS-0.4V(51)", "Hirose Electric",
                "100-pos 0.4mm SMD receptacle, CM4 secondary connector (high-speed IO + power)",
                group="cm4", footprint_group="cm4conn"),
@@ -47,7 +47,7 @@ COMPONENTS: list[Component] = [
     Component("R7", "Device:R", "Resistor_SMD:R_0402_1005Metric",
                "10k", "RC0402FR-0710KL", "Yageo", "nRPIBOOT pull-up", group="cm4"),
     Component("R8", "Device:R", "Resistor_SMD:R_0402_1005Metric",
-               "10k", "RC0402FR-0710KL", "Yageo", "RUN_PG_N pull-up", group="cm4"),
+               "10k", "RC0402FR-0710KL", "Yageo", "RUN_PG pull-up", group="cm4"),
     Component("R9", "Device:R", "Resistor_SMD:R_0402_1005Metric",
                "10k", "RC0402FR-0710KL", "Yageo", "EEPROM_nWP pull-up (default: boot config write-protected)", group="cm4"),
     Component("C11", "Device:C", "Capacitor_SMD:C_0402_1005Metric",
@@ -70,11 +70,11 @@ COMPONENTS: list[Component] = [
                "3A_PTC", "1206L300/16DR", "Bourns", "Main battery input resettable PTC fuse", group="power"),
     Component("D1", "Device:D_TVS", "Diode_SMD:D_SMB",
                "SMBJ24A", "SMBJ24A", "Littelfuse", "Main battery input TVS clamp, 24V standoff", group="power"),
-    Component("U1", "SKYWARD_Custom:LM74610", "Package_TO_SOT_SMD:SOT-23-6",
-               "LM74610QDBVRQ1", "LM74610QDBVRQ1", "Texas Instruments",
-               "Ideal-diode ORing controller, main battery", group="power", footprint_group="sot23-6"),
+    Component("U1", "SKYWARD_Custom:LM74610QDGKRQ1", "Package_SO:VSSOP-8_3.0x3.0mm_P0.65mm",
+               "LM74610QDGKRQ1", "LM74610QDGKRQ1", "Texas Instruments",
+               "Ideal-diode ORing controller, main battery", group="power", footprint_group="vssop8"),
     Component("Q1", "Device:Q_PMOS_GSD", "Package_TO_SOT_SMD:SOT-23",
-               "SQJ438EP", "SQJ438EP-T1_GE3", "Vishay Siliconix", "P-MOSFET, main battery ORing pass element",
+               "DMP2305U-7", "DMP2305U-7", "Diodes Incorporated", "P-MOSFET, main battery ORing pass element",
                group="power", footprint_group="sot23"),
     Component("C1", "Device:C", "Capacitor_SMD:C_1210_3225Metric",
                "22uF", "GRM32ER71V226KE15L", "Murata", "Main battery input bulk cap", group="power"),
@@ -86,11 +86,11 @@ COMPONENTS: list[Component] = [
                "3A_PTC", "1206L300/16DR", "Bourns", "Terra P1 input resettable PTC fuse", group="power"),
     Component("D2", "Device:D_TVS", "Diode_SMD:D_SMB",
                "SMBJ24A", "SMBJ24A", "Littelfuse", "Terra P1 input TVS clamp, 24V standoff", group="power"),
-    Component("U2", "SKYWARD_Custom:LM74610", "Package_TO_SOT_SMD:SOT-23-6",
-               "LM74610QDBVRQ1", "LM74610QDBVRQ1", "Texas Instruments",
-               "Ideal-diode ORing controller, Terra P1", group="power", footprint_group="sot23-6"),
+    Component("U2", "SKYWARD_Custom:LM74610QDGKRQ1", "Package_SO:VSSOP-8_3.0x3.0mm_P0.65mm",
+               "LM74610QDGKRQ1", "LM74610QDGKRQ1", "Texas Instruments",
+               "Ideal-diode ORing controller, Terra P1", group="power", footprint_group="vssop8"),
     Component("Q2", "Device:Q_PMOS_GSD", "Package_TO_SOT_SMD:SOT-23",
-               "SQJ438EP", "SQJ438EP-T1_GE3", "Vishay Siliconix", "P-MOSFET, Terra P1 ORing pass element",
+               "DMP2305U-7", "DMP2305U-7", "Diodes Incorporated", "P-MOSFET, Terra P1 ORing pass element",
                group="power", footprint_group="sot23"),
     Component("C2", "Device:C", "Capacitor_SMD:C_1210_3225Metric",
                "22uF", "GRM32ER71V226KE15L", "Murata", "Terra P1 input bulk cap", group="power"),
@@ -98,11 +98,24 @@ COMPONENTS: list[Component] = [
                "100nF", "GRM155R71H104KE14D", "Murata", "U2 (LM74610) VCAP charge-pump cap", group="power"),
 
     # ---- Power: 5V buck (CM4 + Terra) --------------------------------------------
+    # TPS5430DDA is a NON-synchronous buck (integrated high-side switch
+    # only) -- confirmed during this audit pass by cross-referencing 6+
+    # independent open-source TPS5430 designs on GitHub, every one of
+    # which places an external Schottky catch diode (cathode->PH,
+    # anode->GND) at the switch node; one described it explicitly as
+    # "not optional and not a snubber -- carries the inductor current for
+    # ~79% of every cycle". The pre-audit design had NO catch diode on
+    # this net at all -- a genuine missing-component defect that would
+    # have made this converter non-functional (or destroyed the IC via
+    # switch-node negative voltage transients) if fabricated as-is. Fixed
+    # below with D5. See docs/OTHER_COMPONENTS_VERIFICATION.md.
     Component("U4", "Regulator_Switching:TPS5430DDA", "Package_SO:TI_SO-PowerPAD-8_ThermalVias",
-               "TPS5430DDA", "TPS5430DDA", "Texas Instruments", "3A sync buck, 5.5-36V in, adjustable -> set for +5V0",
+               "TPS5430DDA", "TPS5430DDA", "Texas Instruments", "3A non-sync buck, 5.5-36V in, adjustable -> set for +5V0",
                group="power", footprint_group="soic8"),
     Component("L1", "Device:L", "Inductor_SMD:L_Coilcraft_XAL4020-XXX",
                "10uH", "XAL4020-103MEB", "Coilcraft", "5V buck inductor", group="power", footprint_group="inductor"),
+    Component("D5", "Device:D_Schottky", "Diode_SMD:D_SMA",
+               "SS34", "SS34", "Onsemi", "5V buck catch diode (PH->GND, non-synchronous TPS5430 topology)", group="power"),
     Component("C3", "Device:C", "Capacitor_SMD:C_0805_2012Metric",
                "10uF", "GRM21BR61H106KE43L", "Murata", "5V buck input cap", group="power"),
     Component("C4", "Device:C", "Capacitor_SMD:C_0805_2012Metric",
@@ -143,21 +156,50 @@ COMPONENTS: list[Component] = [
                "SS34", "SS34", "Onsemi", "Dock input reverse-polarity protection", group="power"),
     Component("D4", "Device:D_TVS", "Diode_SMD:D_SMB",
                "SMBJ24A", "SMBJ24A", "Littelfuse", "Dock input TVS clamp", group="power"),
-    Component("U3", "SKYWARD_Custom:BQ25792", "Package_DFN_QFN:QFN-24-1EP_4x4mm_P0.5mm_EP2.6x2.6mm",
-               "BQ25792RQMR", "BQ25792RQMR", "Texas Instruments", "1-4S I2C buck charger, dock -> main battery",
-               group="power", footprint_group="qfn24"),
+    # U3 + support: BQ25792 is a 29-pin WQFN 4-switch buck-boost charger --
+    # NOT the simple 8-pin part modeled in the pre-audit Rev A. See
+    # docs/BQ25792_VERIFICATION.md for the verified real pinout and the
+    # single-input (VAC1-only) application circuit implemented below.
+    Component("U3", "SKYWARD_Custom:BQ25792RQMR",
+               "SKYWARD_Custom:QFN-29_L4.0-W4.0-P0.40-BQ25792RQMR",
+               "BQ25792RQMR", "BQ25792RQMR", "Texas Instruments", "1-4S I2C buck-boost charger, dock -> main battery",
+               group="power", footprint_group="qfn29"),
+    Component("Q5", "Device:Q_PMOS_GSD", "Package_TO_SOT_SMD:SOT-23",
+               "DMP2305U-7", "DMP2305U-7", "Diodes Incorporated",
+               "BQ25792 input blocking FET, ACFET1 (back-to-back pair with Q6)",
+               group="power", footprint_group="sot23"),
+    Component("Q6", "Device:Q_PMOS_GSD", "Package_TO_SOT_SMD:SOT-23",
+               "DMP2305U-7", "DMP2305U-7", "Diodes Incorporated",
+               "BQ25792 input blocking FET, RBFET1 (back-to-back pair with Q5)",
+               group="power", footprint_group="sot23"),
     Component("L2", "Device:L", "Inductor_SMD:L_Coilcraft_XAL4020-XXX",
-               "2.2uH", "XAL4020-222MEB", "Coilcraft", "BQ25792 charge inductor", group="power", footprint_group="inductor"),
+               "2.2uH", "XAL4020-222MEB", "Coilcraft", "BQ25792 buck-boost inductor, SW1-SW2", group="power", footprint_group="inductor"),
     Component("C7", "Device:C", "Capacitor_SMD:C_0805_2012Metric",
-               "10uF", "GRM21BR61H106KE43L", "Murata", "BQ25792 input cap", group="power"),
+               "10uF", "GRM21BR61H106KE43L", "Murata", "BQ25792 VBUS input cap", group="power"),
     Component("C8", "Device:C", "Capacitor_SMD:C_0805_2012Metric",
-               "10uF", "GRM21BR61H106KE43L", "Murata", "BQ25792 SYS/output cap", group="power"),
-    Component("C9", "Device:C", "Capacitor_SMD:C_0402_1005Metric",
-               "100nF", "GRM155R71H104KE14D", "Murata", "BQ25792 decoupling", group="power"),
-    Component("C10", "Device:C", "Capacitor_SMD:C_0402_1005Metric",
-               "100nF", "GRM155R71H104KE14D", "Murata", "BQ25792 decoupling", group="power"),
+               "10uF", "GRM21BR61H106KE43L", "Murata", "BQ25792 SYS output cap", group="power"),
+    Component("C9", "Device:C", "Capacitor_SMD:C_0603_1608Metric",
+               "1uF", "GRM188R61A105KA61D", "Murata", "BQ25792 REGN (internal LDO) decoupling", group="power"),
+    Component("C10", "Device:C", "Capacitor_SMD:C_0805_2012Metric",
+               "10uF", "GRM21BR61H106KE43L", "Murata", "BQ25792 PMID decoupling", group="power"),
+    Component("C21", "Device:C", "Capacitor_SMD:C_0805_2012Metric",
+               "10uF", "GRM21BR61H106KE43L", "Murata", "BQ25792 BAT decoupling (at the charger, in addition to C1 at the ORing input)", group="power"),
+    Component("C22", "Device:C", "Capacitor_SMD:C_0402_1005Metric",
+               "100nF", "GRM155R71H103KA88D", "Murata", "BQ25792 BTST1 bootstrap cap -- HIGHEST-UNCERTAINTY connection on this board, see docs/BQ25792_VERIFICATION.md", group="power"),
     Component("R3", "Device:R", "Resistor_SMD:R_0402_1005Metric",
-               "5.6k", "RC0402FR-075K6L", "Yageo", "BQ25792 ILIM/PROG set resistor", group="power"),
+               "5.6k", "RC0402FR-075K6L", "Yageo", "BQ25792 ILIM_HIZ set resistor -- value TBD, confirm against datasheet equation", group="power"),
+    Component("R16", "Device:R", "Resistor_SMD:R_0402_1005Metric",
+               "5.6k", "RC0402FR-075K6L", "Yageo", "BQ25792 PROG resistor -- value TBD, confirm against datasheet equation", group="power"),
+    Component("R17", "Device:R", "Resistor_SMD:R_0402_1005Metric",
+               "10k", "RC0402FR-0710KL", "Yageo", "BQ25792 TS bias divider (upper) -- approximates room temp; replace with real NTC divider if the battery pack provides a thermistor lead", group="power"),
+    Component("R18", "Device:R", "Resistor_SMD:R_0402_1005Metric",
+               "10k", "RC0402FR-0710KL", "Yageo", "BQ25792 TS bias divider (lower)", group="power"),
+    Component("R19", "Device:R", "Resistor_SMD:R_0402_1005Metric",
+               "10", "RC0402FR-0710RL", "Yageo", "BQ25792 ACDRV1 gate series resistor (Q5/Q6)", group="power"),
+    Component("R20", "Device:R", "Resistor_SMD:R_0402_1005Metric",
+               "10k", "RC0402FR-0710KL", "Yageo", "BQ25792 QON pull-up (inactive default, no manual power button in Rev A)", group="power"),
+    Component("R21", "Device:R", "Resistor_SMD:R_0402_1005Metric",
+               "10k", "RC0402FR-0710KL", "Yageo", "BQ25792 INT open-drain pull-up", group="power"),
     Component("R5", "Device:R", "Resistor_SMD:R_0402_1005Metric",
                "10k", "RC0402FR-0710KL", "Yageo", "GPIO_DOCK_DET pull-up (dock presence detect)", group="power"),
 
@@ -222,42 +264,56 @@ COMP_BY_REF = {c.ref: c for c in COMPONENTS}
 
 # ---------------------------------------------------------------------------
 # CM4 pin-number assignment (functional -> pin number).
-# SEE docs/assumptions.md #1: verify against the official CM4 datasheet
-# before fabrication. Unlisted pins (1-100 per connector) are NC.
-# Power pins use the board-wide net name "+5V0" / "GND" directly so there is
-# exactly one net object shared with the rest of the schematic.
-# ---------------------------------------------------------------------------
+# VERIFIED against the official raspberrypi/linux kernel device tree
+# (bcm2711-rpi-ds.dtsi, GPIO ALT-function pin muxing) and cross-checked
+# pin-for-pin against multiple independent open-source CM4 carrier board
+# projects (including a shipped commercial product, NabuCasa/yellow).
+# See docs/CM4_PIN_VERIFICATION.md for the full source list and mapping
+# table -- this replaces the earlier unverified pin assignment.
+#
+# Only 3 of the BCM2711's 5 PL011 UART instances are usable simultaneously
+# with I2C0 and SPI0 (UART2 shares GPIO0/1 with I2C0; UART4 shares GPIO8/9
+# with SPI0) -- this is a real hardware constraint, not a choice, and it is
+# why this design has 3 CM4-side UARTs (FC, GNSS, ELRS), not 5. The debug
+# console shares the FC UART0 pins (fanned to both connectors; don't mate
+# both at once). Terra's dedicated UART was removed for the same reason --
+# it keeps SPI0 + I2C1 + USB2 HS, which was always the primary Terra bus
+# plan. Unlisted pins are NC (present in the footprint, not connected).
 CM4_J1_PINS = {
-    1: "GND", 2: "GND",
-    3: "+5V0", 4: "+5V0", 5: "+5V0",
-    6: "GND",
-    7: "RUN_PG_N", 8: "EEPROM_nWP", 9: "nRPIBOOT",
-    10: "+3V3",  # GLOBAL_EN, tied high for normal always-enabled module operation
-    11: "GND",
-    12: "UART0_TXD0", 13: "UART0_RXD0",
-    14: "UART1_TXD1", 15: "UART1_RXD1",
-    16: "GND",
-    17: "UART2_TXD", 18: "UART2_RXD",
-    19: "UART3_TXD", 20: "UART3_RXD",
-    21: "GND",
-    22: "I2C0_SDA", 23: "I2C0_SCL",
-    24: "I2C1_SDA", 25: "I2C1_SCL",
-    26: "GND",
-    27: "SPI0_SCLK", 28: "SPI0_MOSI", 29: "SPI0_MISO", 30: "SPI0_CE0_N",
-    31: "GND",
-    32: "USB2_0_DP", 33: "USB2_0_DN",
-    34: "GND",
-    35: "GPIO_DOCK_DET", 36: "GPIO_GNSS_PPS", 37: "GPIO_TOF_INT",
-    38: "GPIO_TERRA_IRQ", 39: "GPIO_TERRA_TRIG", 40: "GPIO_TERRA_A",
-    41: "GPIO_TERRA_B", 42: "GPIO_FC_RESET", 43: "GPIO_FC_AUX",
-    44: "GPIO_STATUS_LED",
-    45: "GND",
-    46: "UART4_TXD", 47: "UART4_RXD",  # 5th PL011-capable UART instance, alt GPIO function, dedicated to Terra
+    1: "GND", 2: "GND", 7: "GND", 8: "GND", 13: "GND", 14: "GND",
+    20: "EEPROM_nWP",
+    22: "GND", 23: "GND",
+    25: "GPIO_TERRA_B", 26: "GPIO_TERRA_TRIG", 27: "GPIO_TERRA_A",
+    28: "UART5_RXD5", 29: "GPIO_GNSS_PPS", 30: "GPIO_DOCK_DET", 31: "UART5_TXD5",
+    32: "GND", 33: "GND",
+    34: "UART3_RXD3",
+    35: "I2C0_SCL", 36: "I2C0_SDA",
+    37: "SPI0_UNUSED_CE1",  # GPIO7, not used (only CE0 needed) -- left NC
+    38: "SPI0_SCLK", 39: "SPI0_CE0_N", 40: "SPI0_MISO",
+    41: "SPI0_UNUSED_GPIO25",  # GPIO25, not used -- left NC
+    42: "GND", 43: "GND",
+    44: "SPI0_MOSI", 45: "GPIO_STATUS_LED", 46: "GPIO_FC_RESET", 47: "GPIO_FC_AUX",
+    49: "GPIO_TERRA_IRQ", 50: "GPIO_TOF_INT", 51: "UART0_RXD0",
+    52: "GND", 53: "GND",
+    54: "UART3_TXD3", 55: "UART0_TXD0",
+    59: "GND", 60: "GND",
+    65: "GND", 66: "GND",
+    71: "GND", 74: "GND",
+    77: "+5V0", 79: "+5V0", 81: "+5V0", 83: "+5V0", 85: "+5V0", 87: "+5V0",
+    24: "GPIO_CHG_INT",  # GPIO26, BQ25792 charge-fault interrupt
+    92: "RUN_PG", 93: "nRPIBOOT",
+    98: "GND", 99: "+3V3",  # GLOBAL_EN, tied high for normal always-enabled operation
 }
 CM4_J2_PINS = {
-    1: "GND", 2: "+5V0", 3: "GND", 4: "+5V0", 5: "GND",
-    6: "+5V0", 7: "GND", 8: "+5V0", 9: "GND", 10: "GND",
+    1: "GND",  # USB_OTG_ID, tied to GND to force USB host mode (CM4 is host to Terra)
+    3: "USB2_0_DN", 5: "USB2_0_DP",
+    7: "GND", 8: "GND", 13: "GND", 14: "GND", 19: "GND", 20: "GND",
+    25: "GND", 26: "GND",
 }
+# GPIO7 (CE1) and GPIO25 are unused SPI0-adjacent pins with no net purpose
+# in this design; they get a real no-connect flag, not a fake net -- see
+# the cleanup pass right after NETS is populated below.
+_CM4_PLACEHOLDER_NETS = ("SPI0_UNUSED_CE1", "SPI0_UNUSED_GPIO25")
 
 # ---------------------------------------------------------------------------
 # Full net list: net_name -> [(ref, pin_number_or_name), ...]
@@ -274,11 +330,22 @@ for _pin, _sig in CM4_J1_PINS.items():
     _add(_sig, "J1", _pin)
 for _pin, _sig in CM4_J2_PINS.items():
     _add(_sig, "J2", _pin)
+for _placeholder in _CM4_PLACEHOLDER_NETS:
+    NETS.pop(_placeholder, None)  # real no-connect, not a fake single-pin net
 
 # --- Power path: main battery -> ORing -> VBAT_BUS --------------------------
-# LM74610 custom symbol pin map (see gen_symbols.py): 1 SNS, 2 GND, 3 VCAP,
-# 4 GATE, 5 SUP, 6 NC. It senses/drives its OWN pass FET only (Q1) -- the
-# instrumentation shunt (RSH1) sits downstream of Q1's drain, in series
+# Real LM74610QDGKRQ1 pin map (see gen_symbols.py, verified against 2
+# independent sources -- docs/LM74610_VERIFICATION.md): 1 VCAPL, 2
+# GATE_PULL_DOWN, 3 NC, 4 ANODE, 5 NC, 6 GATE_DRIVE, 7 VCAPH, 8 CATHODE.
+# The chip has NO ground pin -- it floats, powered parasitically between
+# ANODE and CATHODE -- and its charge-pump cap goes BETWEEN VCAPL/VCAPH,
+# not to ground. This replaced an earlier, incorrect 6-pin SOT-23-6 model
+# with an invented GND pin. GATE_PULL_DOWN is tied to the same node as
+# GATE_DRIVE (documented assumption -- both pins are involved in gate
+# control per the part's naming; not independently confirmed from primary
+# datasheet text, see the verification doc).
+#
+# The instrumentation shunt (RSH1) sits downstream of Q1's drain, in series
 # toward the merged VBAT_BUS node, so it reads main-battery branch current
 # only, not the merged total.
 _add("BATT_IN", "J3", 1)
@@ -287,12 +354,12 @@ _add("BATT_IN", "F1", 1)
 _add("BATT_F", "F1", 2)
 _add("BATT_F", "D1", 1)      # TVS
 _add("GND", "D1", 2)
-_add("BATT_F", "U1", 1)       # SNS (battery/source side)
-_add("GND", "U1", 2)          # GND
-_add("VCAP1", "U1", 3)        # VCAP
-_add("Q1_GATE", "U1", 4)      # GATE drive to Q1
-_add("VBAT_MAIN_OUT", "U1", 5)  # SUP (senses across Q1: drain side)
-_add("VCAP1", "C16", 1); _add("GND", "C16", 2)
+_add("BATT_F", "U1", 4)         # ANODE (battery/source side)
+_add("VBAT_MAIN_OUT", "U1", 8)  # CATHODE (bus/drain side)
+_add("Q1_GATE", "U1", 6)        # GATE_DRIVE
+_add("Q1_GATE", "U1", 2)        # GATE_PULL_DOWN (tied with GATE_DRIVE, see note above)
+_add("VCAP1_L", "U1", 1); _add("VCAP1_H", "U1", 7)  # VCAPL/VCAPH -- cap goes between these two
+_add("VCAP1_L", "C16", 1); _add("VCAP1_H", "C16", 2)
 _add("BATT_F", "Q1", 2)       # Source
 _add("Q1_GATE", "Q1", 1)      # Gate
 _add("VBAT_MAIN_OUT", "Q1", 3)  # Drain
@@ -308,12 +375,12 @@ _add("TERRA_BATT_RAW", "F2", 1)
 _add("P1_F", "F2", 2)
 _add("P1_F", "D2", 1)
 _add("GND", "D2", 2)
-_add("P1_F", "U2", 1)          # SNS
-_add("GND", "U2", 2)           # GND
-_add("VCAP2", "U2", 3)         # VCAP
-_add("Q2_GATE", "U2", 4)       # GATE
-_add("VBAT_P1_OUT", "U2", 5)   # SUP (senses across Q2)
-_add("VCAP2", "C17", 1); _add("GND", "C17", 2)
+_add("P1_F", "U2", 4)           # ANODE
+_add("VBAT_P1_OUT", "U2", 8)    # CATHODE
+_add("Q2_GATE", "U2", 6)        # GATE_DRIVE
+_add("Q2_GATE", "U2", 2)        # GATE_PULL_DOWN
+_add("VCAP2_L", "U2", 1); _add("VCAP2_H", "U2", 7)
+_add("VCAP2_L", "C17", 1); _add("VCAP2_H", "C17", 2)
 _add("P1_F", "Q2", 2)          # Source
 _add("Q2_GATE", "Q2", 1)       # Gate
 _add("VBAT_P1_OUT", "Q2", 3)   # Drain
@@ -333,6 +400,8 @@ _add("5V0_SW", "U4", 8)        # PH (switch node)
 _add("BOOT_5V", "U4", 1)       # BOOT
 _add("5V0_SW", "C18", 1)
 _add("BOOT_5V", "C18", 2)
+_add("5V0_SW", "D5", 1)         # catch diode cathode -> PH switch node
+_add("GND", "D5", 2)            # catch diode anode -> GND (non-sync buck, see comment above)
 _add("FB5V", "U4", 4)          # VSENSE
 _add("VBAT_BUS", "U4", 5)      # EN, tied to VIN (always enabled)
 _add("GND", "U4", 9)           # GNDPAD (thermal)
@@ -382,6 +451,13 @@ _add("+3V3", "U6", 16)           # VPU (open-drain alarm pull-up supply)
 # no-connect flagged by the schematic generator.
 
 # --- Dock + BQ25792 charger (U3): dock -> charges BATT_F (main pack) ----------
+# Real 29-pin BQ25792 single-input (VAC1-only) application circuit. Pin
+# numbers per docs/BQ25792_VERIFICATION.md. VAC2 (the unused second input)
+# is tied to GND per TI's documented convention for an unpopulated input;
+# CE is tied to GND (always enabled); QON gets an inactive-default pull-up
+# (no manual power button in Rev A); BATP is tied directly to the BAT node
+# as a conservative default (its exact function was not independently
+# confirmed from primary datasheet text -- see the verification doc).
 _add("DOCK_PWR_RAW", "J4", 1)
 _add("GND", "J4", 2)
 _add("GPIO_DOCK_DET", "J4", 3)     # shorted to GND by dock contact when seated
@@ -393,26 +469,86 @@ _add("DOCK_OK", "D3", 1)     # Schottky cathode (downstream, protected side)
 _add("DOCK_F", "D3", 2)      # anode (upstream, raw dock input) -- forward-conducts DOCK_F -> DOCK_OK
 _add("DOCK_OK", "D4", 1)
 _add("GND", "D4", 2)
-_add("DOCK_OK", "C7", 1)
-_add("GND", "C7", 2)
-_add("DOCK_OK", "U3", 1)     # VAC1 charger input
-_add("GND", "U3", 2)
-_add("CHG_SW", "U3", 3)
-_add("CHG_SW", "L2", 1)
-_add("BATT_F", "L2", 2)       # charges the main battery node, upstream of the Q1 ORing FET
-_add("BATT_F", "C8", 1)
-_add("GND", "C8", 2)
-_add("+3V3", "C9", 1)
-_add("GND", "C9", 2)
-_add("+3V3", "C10", 1)
-_add("GND", "C10", 2)
-_add("+3V3", "U3", 4)         # I2C/logic supply
-_add("I2C0_SDA", "U3", 5)
-_add("I2C0_SCL", "U3", 6)
-_add("PROG", "U3", 7)
-_add("PROG", "R3", 1)
-_add("GND", "R3", 2)
-_add("GND", "U3", 8)          # thermal pad / PGND
+
+# VAC1 sense (high-impedance, taps the input directly) + input blocking FET
+# pair Q5 (ACFET1) / Q6 (RBFET1), gate-driven by ACDRV1 through R19, boot-
+# strapped by C22. This FET pair + bootstrap network is the single
+# highest-uncertainty analog circuit on this board -- see
+# docs/BQ25792_VERIFICATION.md and docs/FINAL_DESIGN_AUDIT.md.
+_add("DOCK_OK", "U3", 9)      # VAC1 (sense)
+_add("DOCK_OK", "Q5", 2)      # Q5 source (P-FET, S per Device:Q_PMOS_GSD pin2)
+_add("Q5_Q6_MID", "Q5", 3)    # Q5 drain
+_add("Q5_Q6_MID", "Q6", 3)    # Q6 drain (back-to-back: drains tied)
+_add("VBUS_IN", "Q6", 2)      # Q6 source -> BQ25792 VBUS pins
+_add("ACDRV1_GATE", "U3", 11)  # ACDRV1
+_add("ACDRV1_GATE", "R19", 1)
+_add("GATE_DRIVE", "R19", 2)
+_add("GATE_DRIVE", "Q5", 1)   # Q5 gate
+_add("GATE_DRIVE", "Q6", 1)   # Q6 gate
+_add("BTST1", "U3", 4)
+_add("BTST1", "C22", 1)
+_add("DOCK_OK", "C22", 2)     # bootstrap cap referenced to the input rail (see audit note)
+_add("VBUS_IN", "U3", 2); _add("VBUS_IN", "U3", 3)   # VBUS (both pins)
+_add("VBUS_IN", "C7", 1); _add("GND", "C7", 2)  # input cap sits after the blocking FETs, on VBUS_IN
+
+# unused second input (VAC2) tied to GND per TI convention for an
+# unpopulated input; ACDRV2/BTST2 left NC (no second FET pair populated)
+_add("GND", "U3", 8)          # VAC2
+
+# always-enabled, no manual power button in Rev A
+_add("GND", "U3", 13)         # ~CE, active low -> always enabled
+_add("+3V3", "R20", 1); _add("QON_N", "R20", 2)
+_add("QON_N", "U3", 12)       # ~QON, pulled inactive-high (no button populated)
+
+# I2C control/telemetry (shared bus with VL53L5CX/INA3221)
+_add("I2C0_SCL", "U3", 14)
+_add("I2C0_SDA", "U3", 15)
+
+# charge-fault interrupt -> CM4 GPIO26
+_add("+3V3", "R21", 1); _add("GPIO_CHG_INT", "R21", 2)
+_add("GPIO_CHG_INT", "U3", 21)  # ~INT
+
+# TS: fixed bias divider approximating room temperature (documented
+# placeholder -- replace with the pack's real NTC divider if available)
+_add("REGN", "U3", 5)
+_add("REGN", "C9", 1); _add("GND", "C9", 2)
+_add("REGN", "R17", 1)
+_add("TS_BIAS", "R17", 2)
+_add("TS_BIAS", "U3", 16)     # TS
+_add("TS_BIAS", "R18", 1); _add("GND", "R18", 2)
+
+# ILIM_HIZ and PROG set resistors -- values marked TBD in the BOM, see
+# docs/BQ25792_VERIFICATION.md
+_add("ILIM_SET", "U3", 17)
+_add("ILIM_SET", "R3", 1); _add("GND", "R3", 2)
+_add("PROG_SET", "U3", 20)
+_add("PROG_SET", "R16", 1); _add("GND", "R16", 2)
+
+# BATP tied directly to the BAT node (conservative default, see above)
+_add("BATT_F", "U3", 18)      # BATP
+
+# PMID intermediate bus decoupling
+_add("PMID", "U3", 29)
+_add("PMID", "C10", 1); _add("GND", "C10", 2)
+
+# 4-switch buck-boost inductor, SW1<->SW2
+_add("SW1", "U3", 28)
+_add("SW2", "U3", 26)
+_add("SW1", "L2", 1)
+_add("SW2", "L2", 2)
+
+# SYS (system output) and BAT (battery charge/discharge) -- SYS not used
+# by this design (the aircraft power bus is sourced from the battery
+# ORing network, not from the charger's SYS pin) so it is decoupled but
+# otherwise left as a charger-internal node; BAT charges the main battery
+# node, upstream of the Q1 ORing FET.
+_add("SYS_NODE", "U3", 25)
+_add("SYS_NODE", "C8", 1); _add("GND", "C8", 2)
+_add("BATT_F", "U3", 22); _add("BATT_F", "U3", 23)   # BAT (both pins)
+_add("BATT_F", "C21", 1); _add("GND", "C21", 2)
+
+_add("GND", "U3", 27)         # GND pin
+_add("GND", "U3", 30)         # EP (exposed pad) -- documented assumption, see gen_footprints.py
 
 # --- CM4 decoupling / boot straps ---------------------------------------------
 for _c in ("C11", "C12", "C13", "C14", "C15"):
@@ -421,16 +557,19 @@ for _c in ("C11", "C12", "C13", "C14", "C15"):
 
 _add("nRPIBOOT", "SW1", 1); _add("GND", "SW1", 2)
 _add("+3V3", "R7", 1); _add("nRPIBOOT", "R7", 2)
-_add("RUN_PG_N", "SW2", 1); _add("GND", "SW2", 2)
-_add("+3V3", "R8", 1); _add("RUN_PG_N", "R8", 2)
+_add("RUN_PG", "SW2", 1); _add("GND", "SW2", 2)
+_add("+3V3", "R8", 1); _add("RUN_PG", "R8", 2)
 _add("+3V3", "R9", 1); _add("EEPROM_nWP", "R9", 2)
 
+# Debug header shares the FC UART0 pins (see docs/CM4_PIN_VERIFICATION.md --
+# only 3 independent UARTs are available; don't mate a debug adapter and
+# the FC at the same time).
 _add("GND", "J10", 1)
 _add("+3V3", "J10", 2)
-_add("UART3_TXD", "J10", 3)
-_add("UART3_RXD", "J10", 4)
+_add("UART0_TXD0", "J10", 3)
+_add("UART0_RXD0", "J10", 4)
 _add("nRPIBOOT", "J10", 5)
-_add("RUN_PG_N", "J10", 6)
+_add("RUN_PG", "J10", 6)
 
 # --- FC / GNSS / ELRS / TOF connectors -----------------------------------------
 _add("GND", "J5", 1); _add("+5V0", "J5", 2)
@@ -438,14 +577,14 @@ _add("UART0_TXD0", "J5", 3); _add("UART0_RXD0", "J5", 4)
 _add("GPIO_FC_RESET", "J5", 5); _add("GPIO_FC_AUX", "J5", 6)
 
 _add("GND", "J6", 1); _add("+5V0", "J6", 2)
-_add("UART1_RXD1", "J6", 3)     # GNSS TX -> CM4 RX
-_add("UART1_TXD1", "J6", 4)     # CM4 TX -> GNSS RX
+_add("UART3_RXD3", "J6", 3)     # GNSS TX -> CM4 RX
+_add("UART3_TXD3", "J6", 4)     # CM4 TX -> GNSS RX
 _add("GPIO_GNSS_PPS", "J6", 5)
 # J_GNSS pin 6: reserved, NC
 
 _add("GND", "J7", 1); _add("+3V3", "J7", 2)
-_add("UART2_RXD", "J7", 3)      # ELRS TX -> CM4 RX
-_add("UART2_TXD", "J7", 4)      # CM4 TX -> ELRS RX
+_add("UART5_RXD5", "J7", 3)      # ELRS TX -> CM4 RX
+_add("UART5_TXD5", "J7", 4)      # CM4 TX -> ELRS RX
 
 _add("GND", "J8", 1); _add("+3V3", "J8", 2)
 _add("I2C0_SDA", "J8", 3); _add("I2C0_SCL", "J8", 4)
@@ -475,8 +614,9 @@ _add("SPI0_SCLK", "J9", 6)
 _add("SPI0_MOSI", "J9", 7)
 _add("SPI0_MISO", "J9", 8)
 _add("SPI0_CE0_N", "J9", 9)
-_add("UART4_TXD", "J9", 10)
-_add("UART4_RXD", "J9", 11)
+# J9 pins 10/11 (originally a dedicated Terra UART) are reserved/NC in this
+# revision -- the CM4 only has 3 UARTs free of I2C0/SPI0 pin conflicts, all
+# allocated to FC/GNSS/ELRS. See docs/CM4_PIN_VERIFICATION.md.
 _add("USB2_0_DP", "J9", 12)
 _add("USB2_0_DN", "J9", 13)
 _add("GPIO_TERRA_A", "J9", 14)
@@ -499,14 +639,5 @@ _add("VBAT_BUS", "TP1", 1)
 _add("+5V0", "TP2", 1)
 _add("+3V3", "TP3", 1)
 _add("GND", "TP4", 1)
-
-# ---------------------------------------------------------------------------
-# UART2_TXD/UART2_RXD are shared between the CM4 (J1 pins 17/18) and both the
-# ELRS connector: this is a single logical UART with one attachment point,
-# no fan-out conflict (Device tree/init selects the ELRS UART peripheral).
-#
-# net UART cross-checks and single-consumer validation are performed by
-# validate.py against this module before schematic/PCB generation runs.
-# ---------------------------------------------------------------------------
 
 ALL_REFS = {c.ref for c in COMPONENTS}

@@ -63,8 +63,10 @@ board over a dedicated harness. This board provides:
 4. GNSS interface (BN-220, UART + PPS)
 5. VL53L5CX short-range spatial ToF sensor (permanently installed, I2C)
 6. ELRS receiver interface (UART)
-7. Standardized Terra payload interface (power, I2C, SPI, UART, USB2 HS,
-   GPIO, IRQ, trigger/sync, presence-detect)
+7. Standardized Terra payload interface (power, I2C, SPI, USB2 HS,
+   GPIO, IRQ, trigger/sync, presence-detect -- no dedicated UART, see
+   `CM4_PIN_VERIFICATION.md`: the CM4 only has 3 UART instances free of
+   I2C0/SPI0 conflicts, all used by FC/GNSS/ELRS)
 8. Dock/charging interface (3-contact skid interface -> onboard charger IC)
 9. Debug/console header
 
@@ -79,6 +81,7 @@ board over a dedicated harness. This board provides:
 | Logic domain: 3.3 V everywhere | CM4 GPIO, FC UART, ELRS RX UART, BN-220 UART and VL53L5CX I2C are all natively 3.3 V — no level shifting required anywhere in the signal chain, minimizing part count/mass/failure points. |
 | Battery power-path: ideal-diode ORing (not raw parallel) | Main battery and Terra P1 battery are independently protected and ORed onto a common aircraft power bus so a fault or full discharge on one pack cannot back-feed or short into the other. See `power_architecture.md`. |
 | Dock charges the main pack only; P1 is charged off-aircraft | Avoids a second, more complex bidirectional-charge power path through the same ORing junction (an ideal-diode ORing FET blocks reverse current by design — it cannot also serve as a charge path). Terra P1 is swappable exactly like L1/V1/T1 and is charged in a bench charger/bay between flights, consistent with normal multi-battery multirotor operating practice. |
+| Only 3 CM4 UARTs used (FC, GNSS, ELRS); debug console shares the FC UART; Terra's UART dropped | The BCM2711 has 5 PL011 UART instances, but UART2 shares GPIO0/1 with I2C0 and UART4 shares GPIO8/9 with SPI0, both of which this design needs concurrently -- verified against the official `raspberrypi/linux` kernel device tree, see `CM4_PIN_VERIFICATION.md`. Only 3 UARTs are actually free of conflicts. This replaced an earlier draft that incorrectly assumed 5 independent UARTs were available. |
 | 4-layer, 1.0 mm FR4 | 4 layers is sufficient for CM4 fan-out (single-ended, no true high-speed diff pairs routed in Rev A) plus solid GND/power planes; thinner-than-standard 1.0 mm core saves board mass vs. the 1.6 mm default at negligible mechanical cost for a board this size, mounted on 4 standoffs. |
 | Motor power (main battery high current) does **not** route through this board | The FC/ESC AIO board takes battery power directly via its own XT30-class pads, as in the existing prototype. This board only taps a low-current (<=4 A) copy of the same battery rail for CM4/peripheral regulation. Keeps high-current, high-di/dt traces off the compute board entirely — good for both EMI (GNSS/RF nearby) and mass (no heavy copper needed for motor current). |
 

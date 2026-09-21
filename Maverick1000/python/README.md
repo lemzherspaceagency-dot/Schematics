@@ -9,9 +9,14 @@ python3 gen_symbols.py       # -> kicad/libraries/symbols/SKYWARD_Custom.kicad_s
 python3 gen_footprints.py    # -> kicad/libraries/footprints/SKYWARD_Custom.pretty/*.kicad_mod
 python3 gen_schematic.py     # -> kicad/SKYWARD-COMPUTE-CARRIER/SKYWARD-COMPUTE-CARRIER.kicad_sch
 python3 gen_pcb.py           # -> kicad/SKYWARD-COMPUTE-CARRIER/SKYWARD-COMPUTE-CARRIER.kicad_pcb
+python3 gen_routes.py        # -> routes the priority-1/2/3 nets as real copper (partial -- see docs/ROUTING_STATUS.md)
 python3 gen_project.py       # -> .kicad_pro, sym-lib-table, fp-lib-table
 python3 gen_bom.py           # -> bom/BOM.csv
 ```
+
+Run `gen_pcb.py` again (regenerating a clean board) before every `gen_routes.py`
+run rather than running `gen_routes.py` twice in a row -- it appends tracks
+to whatever board is currently on disk and does not de-duplicate.
 
 Requires KiCad's own Python (`pcbnew` module) and a KiCad 7 symbol/footprint
 library install (this was built and tested against KiCad 7.0.11 on Ubuntu
@@ -54,6 +59,12 @@ library install (this was built and tested against KiCad 7.0.11 on Ubuntu
   relative path (`${KIPRJMOD}/...`), making the whole `kicad/` folder
   portable to any machine.
 - **`gen_bom.py`** — derives `bom/BOM.csv` directly from `design_data.py`.
+- **`gen_routes.py`** — routes the highest-priority nets (battery paths,
+  converter loops, charging path, current-sense taps) as real copper,
+  verifying every candidate track against every foreign-net pad/track
+  before committing it. Only a partial routing pass succeeds on the
+  current placement — see `docs/ROUTING_STATUS.md` for the exact,
+  connection-by-connection breakdown of what is and isn't copper, and why.
 - **`validate.py`** — catches typos in `design_data.py` before they become
   bad copper: unknown refs, a pin wired into two nets (a short), a
   component with zero connections, duplicate reference designators.

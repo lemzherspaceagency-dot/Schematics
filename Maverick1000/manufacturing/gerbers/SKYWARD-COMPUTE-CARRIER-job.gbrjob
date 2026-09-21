@@ -5,7 +5,7 @@
       "Application": "Pcbnew",
       "Version": "7.0.11+dfsg-1build4"
     },
-    "CreationDate": "2026-09-21T08:37:54+00:00"
+    "CreationDate": "2026-09-21T09:38:33+00:00"
   },
   "GeneralSpecs": {
     "ProjectId": {
@@ -27,6 +27,7 @@
       "PadToPad": 0.15,
       "PadToTrack": 0.15,
       "TrackToTrack": 0.15,
+      "MinLineWidth": 0.3,
       "TrackToRegion": 0.5,
       "RegionToRegion": 0.5
     },
@@ -61,16 +62,6 @@
       "FilePolarity": "Positive"
     },
     {
-      "Path": "SKYWARD-COMPUTE-CARRIER-F_Adhesive.gta",
-      "FileFunction": "Glue,Top",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "SKYWARD-COMPUTE-CARRIER-B_Adhesive.gba",
-      "FileFunction": "Glue,Bot",
-      "FilePolarity": "Positive"
-    },
-    {
       "Path": "SKYWARD-COMPUTE-CARRIER-F_Paste.gtp",
       "FileFunction": "SolderPaste,Top",
       "FilePolarity": "Positive"
@@ -101,26 +92,6 @@
       "FilePolarity": "Negative"
     },
     {
-      "Path": "SKYWARD-COMPUTE-CARRIER-User_Drawings.gbr",
-      "FileFunction": "Other,User",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "SKYWARD-COMPUTE-CARRIER-User_Comments.gbr",
-      "FileFunction": "Other,User",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "SKYWARD-COMPUTE-CARRIER-User_Eco1.gbr",
-      "FileFunction": "Other,User",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "SKYWARD-COMPUTE-CARRIER-User_Eco2.gbr",
-      "FileFunction": "Other,User",
-      "FilePolarity": "Positive"
-    },
-    {
       "Path": "SKYWARD-COMPUTE-CARRIER-Edge_Cuts.gm1",
       "FileFunction": "Profile",
       "FilePolarity": "Positive"
@@ -133,51 +104,6 @@
     {
       "Path": "SKYWARD-COMPUTE-CARRIER-B_Fab.gbr",
       "FileFunction": "AssemblyDrawing,Bot",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "SKYWARD-COMPUTE-CARRIER-User_1.gbr",
-      "FileFunction": "Other,User",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "SKYWARD-COMPUTE-CARRIER-User_2.gbr",
-      "FileFunction": "Other,User",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "SKYWARD-COMPUTE-CARRIER-User_3.gbr",
-      "FileFunction": "Other,User",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "SKYWARD-COMPUTE-CARRIER-User_4.gbr",
-      "FileFunction": "Other,User",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "SKYWARD-COMPUTE-CARRIER-User_5.gbr",
-      "FileFunction": "Other,User",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "SKYWARD-COMPUTE-CARRIER-User_6.gbr",
-      "FileFunction": "Other,User",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "SKYWARD-COMPUTE-CARRIER-User_7.gbr",
-      "FileFunction": "Other,User",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "SKYWARD-COMPUTE-CARRIER-User_8.gbr",
-      "FileFunction": "Other,User",
-      "FilePolarity": "Positive"
-    },
-    {
-      "Path": "SKYWARD-COMPUTE-CARRIER-User_9.gbr",
-      "FileFunction": "Other,User",
       "FilePolarity": "Positive"
     }
   ],

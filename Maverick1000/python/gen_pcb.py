@@ -98,6 +98,14 @@ def load_footprint(footprint_field):
     fp = pcbnew.FootprintLoad(lib_dir, name)
     if fp is None:
         raise ValueError(f"Could not load footprint {footprint_field} from {lib_dir}")
+    # FootprintLoad() takes a raw directory path, not a fp-lib-table
+    # nickname, so it leaves the library nickname on the loaded FOOTPRINT
+    # blank -- confirmed by a real DRC run flagging 85/85 footprints with
+    # "does not include the library ''". Set it explicitly to the logical
+    # nickname (matching kicad/SKYWARD-COMPUTE-CARRIER/fp-lib-table) so the
+    # board file stores real "Library:Footprint" references, not bare
+    # names, and "update footprint from library" works correctly in KiCad.
+    fp.SetFPID(pcbnew.LIB_ID(lib, name))
     return fp
 
 

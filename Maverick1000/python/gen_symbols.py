@@ -43,7 +43,8 @@ def two_column_connector(sym_name, ref_prefix, footprint, description, datasheet
 '''
     pins_txt = ['    (symbol "%s_1_1"\n' % sym_name]
     for idx in range(1, n + 1):
-        name = pin_map[idx]
+        entry = pin_map[idx]
+        name, etype = entry if isinstance(entry, tuple) else (entry, "passive")
         if idx <= half:
             y = top_y - (idx - 1) * pitch
             x = -body_width / 2
@@ -52,7 +53,7 @@ def two_column_connector(sym_name, ref_prefix, footprint, description, datasheet
             y = top_y - (idx - half - 1) * pitch
             x = body_width / 2
             rot = 180
-        pins_txt.append(pin(idx, name, x, y, rot, length=5.08))
+        pins_txt.append(pin(idx, name, x, y, rot, length=5.08, etype=etype))
     pins_txt.append("    )\n")
 
     return f'''  (symbol "{sym_name}" (in_bom yes) (on_board yes)
@@ -86,21 +87,39 @@ def ic_symbol(sym_name, ref_prefix, footprint, description, datasheet, pin_map,
 def main():
     parts = []
 
-    # ---- CM4 100-pin connector (used for both J1 and J2 instances) ----
-    from design_data import CM4_J1_PINS
-    cm4_pins = {i: CM4_J1_PINS.get(i, "NC") for i in range(1, 101)}
+    # ---- CM4 100-pin connectors: J1 (physical pins 1-100) and J2 (101-200,
+    # offset -100) are two DIFFERENT halves of the real 200-pin CM4 edge
+    # connector pair and need two DIFFERENT symbol parts, each with its own
+    # pin function names. An earlier revision generated only one symbol
+    # (from CM4_J1_PINS) and reused it for both J1 and J2 -- net wiring was
+    # still correct (design_data.py wires each instance's pins by NUMBER,
+    # from the correct per-connector dict), but J2's schematic pin labels
+    # were silently J1's, e.g. showing "I2C0_SCL" on a J2 pin that is
+    # actually a plain GND/NC pin on the real connector. Found via an ERC-
+    # equivalent netlist check (see docs/ERC_STATUS.md) cross-referencing
+    # exported pinfunction names against design_data.py.
+    from design_data import CM4_J1_PINS, CM4_J2_PINS
+    cm4_j1_pins = {i: CM4_J1_PINS.get(i, "NC") for i in range(1, 101)}
+    cm4_j2_pins = {i: CM4_J2_PINS.get(i, "NC") for i in range(1, 101)}
     parts.append(two_column_connector(
-        "CM4_Connector_100", "J", "SKYWARD_Custom:Hirose_DF40C-100DS-0.4V",
-        "Raspberry Pi CM4 100-pin 0.4mm high-density connector (functional pin "
-        "map -- verify pin numbers against official CM4 datasheet before fab, "
-        "see docs/assumptions.md #1)",
-        "~", cm4_pins, pitch=1.27, body_width=17.78))
+        "CM4_Connector_100_J1", "J", "SKYWARD_Custom:Hirose_DF40C-100DS-0.4V",
+        "Raspberry Pi CM4 100-pin 0.4mm high-density connector, J1 half "
+        "(physical pins 1-100) -- verify pin numbers against official CM4 "
+        "datasheet before fab, see docs/assumptions.md #1",
+        "~", cm4_j1_pins, pitch=1.27, body_width=17.78))
+    parts.append(two_column_connector(
+        "CM4_Connector_100_J2", "J", "SKYWARD_Custom:Hirose_DF40C-100DS-0.4V",
+        "Raspberry Pi CM4 100-pin 0.4mm high-density connector, J2 half "
+        "(physical pins 101-200, local numbering 1-100) -- verify pin "
+        "numbers against official CM4 datasheet before fab, see "
+        "docs/assumptions.md #1",
+        "~", cm4_j2_pins, pitch=1.27, body_width=17.78))
 
     # ---- Terra 22-pin payload connector ----
     terra_pins = {
         1: "TERRA_PWR", 2: "GND", 3: "GND", 4: "TERRA_SDA", 5: "TERRA_SCL",
         6: "TERRA_SCLK", 7: "TERRA_MOSI", 8: "TERRA_MISO", 9: "TERRA_CS_N",
-        10: "UART4_TXD", 11: "UART4_RXD", 12: "TERRA_USB_DP", 13: "TERRA_USB_DN",
+        10: "NC", 11: "NC", 12: "TERRA_USB_DP", 13: "TERRA_USB_DN",
         14: "TERRA_GPIO_A", 15: "TERRA_GPIO_B", 16: "TERRA_IRQ_N", 17: "TERRA_TRIG",
         18: "TERRA_PRESENCE_N", 19: "GND", 20: "TERRA_PWR", 21: "TERRA_BATT_RAW",
         22: "TERRA_BATT_RAW",
@@ -110,24 +129,63 @@ def main():
         "Maverick 1000 standardized Terra payload bus, 22-pin, see docs/connector_pinouts.md",
         "~", terra_pins, pitch=2.54, body_width=20.32))
 
-    # ---- LM74610 ideal-diode ORing controller (simplified 6-pin model) ----
-    lm_pins = {1: "SNS", 2: "GND", 3: "VCAP", 4: "GATE", 5: "SUP", 6: "NC"}
+    # ---- LM74610-Q1 ideal-diode ORing controller: real 8-pin VSSOP-8 -----
+    # Pin names/numbers verified against 2 independent open-source KiCad
+    # libraries for LM74610QDGKRQ1 (VSSOP-8) which agree exactly -- the
+    # pre-audit Rev A incorrectly modeled this as a 6-pin SOT-23-6 part
+    # with invented pin names (SNS/GND/VCAP/GATE/SUP). The real part has
+    # NO ground pin (it floats, parasitically powered between ANODE and
+    # CATHODE) and needs a cap across VCAPL/VCAPH, not to ground. See
+    # docs/LM74610_VERIFICATION.md.
+    lm_pins = {
+        1: ("VCAPL", "output"), 2: ("GATE_PULL_DOWN", "bidirectional"),
+        3: ("NC", "no_connect"), 4: ("ANODE", "bidirectional"),
+        5: ("NC", "no_connect"), 6: ("GATE_DRIVE", "output"),
+        7: ("VCAPH", "output"), 8: ("CATHODE", "bidirectional"),
+    }
     parts.append(ic_symbol(
-        "LM74610", "U", "Package_TO_SOT_SMD:SOT-23-6",
-        "TI LM74610-Q1 ideal-diode ORing controller (drives an external P-MOSFET)",
+        "LM74610QDGKRQ1", "U", "Package_SO:VSSOP-8_3.0x3.0mm_P0.65mm",
+        "TI LM74610-Q1 ideal-diode ORing controller, VSSOP-8 (drives an "
+        "external back-to-back-free single P-MOSFET; floats between ANODE "
+        "and CATHODE, no GND pin) -- see docs/LM74610_VERIFICATION.md",
         "https://www.ti.com/lit/ds/symlink/lm74610-q1.pdf", lm_pins,
-        pitch=2.54, body_width=15.24))
+        pitch=2.54, body_width=20.32))
 
-    # ---- BQ25792 charger, simplified to the 8 nets used in Rev A ----
-    bq_pins = {1: "VAC1", 2: "GND", 3: "SW", 4: "VDD_LOGIC", 5: "SDA", 6: "SCL",
-               7: "PROG", 8: "PGND"}
-    parts.append(ic_symbol(
-        "BQ25792", "U", "Package_DFN_QFN:QFN-24-1EP_4x4mm_P0.5mm_EP2.6x2.6mm",
-        "TI BQ25792 1-4S I2C buck charger -- SIMPLIFIED to the 8 nets used in "
-        "Rev A. Full 24-pin QFN pinout must be reconciled against the datasheet "
-        "before fabrication, see docs/assumptions.md #9",
+    # ---- BQ25792 charger: full real 29-pin WQFN pinout ----
+    # Verified pin numbers/names/electrical types cross-referenced against
+    # multiple independent real BQ25792RQMR KiCad libraries on GitHub
+    # (M17-Project/LinHT-hw -- a shipped ham-radio product -- and a
+    # tscircuit dataset import), which independently agree pin-for-pin.
+    # Primary TI datasheet PDF access was blocked in this environment; see
+    # docs/BQ25792_VERIFICATION.md for full methodology and residual risk.
+    bq_pins = {
+        1: ("STAT", "output"),
+        2: ("VBUS", "power_in"), 3: ("VBUS", "power_in"),
+        4: ("BTST1", "input"),
+        5: ("REGN", "power_out"),
+        6: ("D+", "bidirectional"), 7: ("D-", "bidirectional"),
+        8: ("VAC2", "power_in"), 9: ("VAC1", "power_in"),
+        10: ("ACDRV2", "power_in"), 11: ("ACDRV1", "power_in"),
+        12: ("~{QON}", "input"), 13: ("~{CE}", "input"),
+        14: ("SCL", "input"), 15: ("SDA", "bidirectional"),
+        16: ("TS", "input"), 17: ("ILIM_HIZ", "input"),
+        18: ("BATP", "input"), 19: ("BTST2", "input"),
+        20: ("PROG", "input"), 21: ("~{INT}", "output"),
+        22: ("BAT", "power_out"), 23: ("BAT", "power_out"),
+        24: ("SDRV", "power_out"), 25: ("SYS", "power_out"),
+        26: ("SW2", "input"), 27: ("GND", "power_in"),
+        28: ("SW1", "input"), 29: ("PMID", "power_out"),
+        30: ("EP", "power_in"),  # exposed thermal/ground pad, see docs/BQ25792_VERIFICATION.md
+    }
+    parts.append(two_column_connector(
+        "BQ25792RQMR", "U",
+        "SKYWARD_Custom:QFN-29_L4.0-W4.0-P0.40-BQ25792RQMR",
+        "TI BQ25792 1-4S I2C-controlled buck-boost charger, dual-input "
+        "selector, USB PD 3.0 OTG output. Full 29-pin WQFN pinout, "
+        "verified against 2 independent open-source KiCad libraries -- "
+        "see docs/BQ25792_VERIFICATION.md.",
         "https://www.ti.com/lit/ds/symlink/bq25792.pdf", bq_pins,
-        pitch=2.54, body_width=15.24))
+        pitch=2.54, body_width=20.32))
 
     out = HEADER + "".join(parts) + FOOTER
     path = "/home/user/Schematics/Maverick1000/kicad/libraries/symbols/SKYWARD_Custom.kicad_sym"
