@@ -72,6 +72,8 @@ GLOBAL RUNWAY_POS IS LATLNG(-0.040556, -74.691111). // KSC runway, converted fro
                                                      // reference, not a first-party measurement.
 GLOBAL GLIDE_LEAD_DEG IS 18.                   // TUNE THIS after each attempt
 GLOBAL G0 IS 9.80665.
+GLOBAL TURN_START_ALT IS 1000.                 // gravity turn pitch program bounds
+GLOBAL TURN_END_ALT IS 45000.                  // "horizontal by 45km" per the craft's own design notes
 GLOBAL GEAR_DEPLOY_ALT IS 600.                 // radar altitude to drop gear, m
 GLOBAL FLARE_ALT IS 60.                        // radar altitude to begin flare, m
 
@@ -209,6 +211,24 @@ FUNCTION TOTAL_AVAILABLE_THRUST {
         IF e:IGNITION AND NOT e:FLAMEOUT { SET F TO F + e:AVAILABLETHRUST. }
     }
     RETURN F.
+}
+
+// FIX (post-flight #1): locking steering to SHIP:SRFPROGRADE for the whole
+// ascent is unstable on a lower-TWR vehicle like this. Once the velocity
+// vector starts tipping past level, chasing it faithfully just steers the
+// nose further down into a dive -- there is nothing in a pure prograde-lock
+// to stop it, and that's exactly what the first flight's black box showed:
+// apoapsis kept climbing (engines still firing) while actual altitude
+// collapsed from 6.8km to 1.4km between t=70s and t=103s.
+// Fix: pitch is a function of ALTITUDE ONLY, clamped to [0,90] degrees above
+// horizon between TURN_START_ALT and TURN_END_ALT. This cannot diverge
+// below horizontal by construction, and TURN_END_ALT=45km matches the
+// craft's own documented profile ("horizontal by 45 km"). LOCK STEERING TO
+// HEADING(90, PITCH_PROGRAM()) re-evaluates this every tick automatically.
+FUNCTION PITCH_PROGRAM {
+    LOCAL frac IS (SHIP:ALTITUDE - TURN_START_ALT) / (TURN_END_ALT - TURN_START_ALT).
+    SET frac TO MIN(1, MAX(0, frac)).
+    RETURN 90 * (1 - frac).
 }
 
 // FAILSAFE: bounded wait for STAGE:READY instead of an unconditional WAIT
@@ -429,14 +449,14 @@ FUNCTION ASCENT {
     LOCAL boosters IS ENGINES_NAMED("MassiveBooster").
     LOCAL ssmes IS ENGINES_NAMED("SSME").
 
-    // Closed-loop gravity turn: pitch kick starts once we're moving, then we
-    // simply follow surface-prograde, which is the standard "perfect" gravity
-    // turn -- no hardcoded pitch-vs-time table, it self-adjusts to drag/TWR.
+    // Closed-loop gravity turn: pitch is a function of altitude only (see
+    // PITCH_PROGRAM), between TURN_START_ALT and TURN_END_ALT. It re-evaluates
+    // every tick since it's a LOCK, not a one-time SET, and it cannot diverge
+    // below horizontal by construction -- see the comment on PITCH_PROGRAM
+    // for why this replaced a plain SRFPROGRADE lock after the first flight.
     WAIT UNTIL SHIP:VELOCITY:SURFACE:MAG > 50 OR SHIP:ALTITUDE > 500.
     LOG_MSG("Pitch kickover.").
-    LOCK STEERING TO HEADING(90, 85).
-    WAIT UNTIL SHIP:ALTITUDE > 1000.
-    LOCK STEERING TO SHIP:SRFPROGRADE.
+    LOCK STEERING TO HEADING(90, PITCH_PROGRAM()).
 
     // Booster separation on flameout (closed loop, no fixed timer)
     WAIT UNTIL ALL_FLAMED_OUT(boosters) OR SHIP:ALTITUDE > 20000.
@@ -444,17 +464,17 @@ FUNCTION ASCENT {
     SET MISSION_PHASE TO "ASCENT-SSME".
     DO_STAGE().
 
-    // Continue on SSMEs, following prograde. The OMS pods only carry ~300 m/s
-    // combined with RCS (confirmed from the stock craft's flight notes), shared
-    // with the deorbit burn later, so MECO should not happen the instant
-    // apoapsis first touches target -- that leaves periapsis deep in the
-    // atmosphere and costs ~70 m/s of OMS just to fix (vis-viva check: cutting
-    // at Pe=0/Ap=80km needs ~72 m/s trim vs. ~10 m/s if Pe is already near
-    // target when MECO happens). So: keep burning near-horizontal until BOTH
-    // apoapsis and periapsis are near target, capped so we never overshoot
-    // apoapsis by more than 15%.
+    // Continue on SSMEs, following the same altitude-based pitch program.
+    // The OMS pods only carry ~300 m/s combined with RCS (confirmed from the
+    // stock craft's flight notes), shared with the deorbit burn later, so
+    // MECO should not happen the instant apoapsis first touches target --
+    // that leaves periapsis deep in the atmosphere and costs ~70 m/s of OMS
+    // just to fix (vis-viva check: cutting at Pe=0/Ap=80km needs ~72 m/s trim
+    // vs. ~10 m/s if Pe is already near target when MECO happens). So: keep
+    // burning near-horizontal until BOTH apoapsis and periapsis are near
+    // target, capped so we never overshoot apoapsis by more than 15%.
     LOCAL ssmeIgniteTime IS TIME:SECONDS.
-    LOCK STEERING TO SHIP:SRFPROGRADE.
+    LOCK STEERING TO HEADING(90, PITCH_PROGRAM()).
     UNTIL (SHIP:APOAPSIS >= TARGET_APO AND SHIP:PERIAPSIS >= TARGET_APO * 0.85) OR ALL_FLAMED_OUT(ssmes) {
         // FAILSAFE: engine-out check with a 3s spool-up grace period. Checking
         // THRUST vs. AVAILABLETHRUST from the instant of ignition false-triggers
