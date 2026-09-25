@@ -249,8 +249,8 @@ FUNCTION OMS_MONOPROP_AVAILABLE {
     LIST PARTS IN allParts.
     FOR p IN allParts {
         IF p:NAME = "omsEngine" {
-            FOR r IN p:RESOURCES {
-                IF r:NAME = "MonoPropellant" { SET total TO total + r:AMOUNT. }
+            FOR res IN p:RESOURCES {
+                IF res:NAME = "MonoPropellant" { SET total TO total + res:AMOUNT. }
             }
         }
     }
@@ -291,13 +291,13 @@ FUNCTION WARP_TO_UT {
 
 // ---------------------------- ORBITAL MATH ----------------------------
 FUNCTION V_CIRC {
-    PARAMETER r.
-    RETURN SQRT(BODY:MU / r).
+    PARAMETER radius.
+    RETURN SQRT(BODY:MU / radius).
 }
 
 FUNCTION V_VIS_VIVA {
-    PARAMETER r, a.
-    RETURN SQRT(BODY:MU * (2/r - 1/a)).
+    PARAMETER radius, sma.
+    RETURN SQRT(BODY:MU * (2/radius - 1/sma)).
 }
 
 // Build a circularization node at apoapsis.
