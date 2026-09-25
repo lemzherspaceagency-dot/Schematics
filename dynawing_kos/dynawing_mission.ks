@@ -11,6 +11,15 @@
 //   GearMedium (main gear) x2 + SmallGearBay (nose gear), RCS blocks.
 //   NO air-breathing engines -> reentry and landing are a dead-stick glide.
 //
+//   CONFIRMED (KSP wiki): OMS + RCS share only ~300 m/s of dv total, used for
+//   BOTH circularization trim AND the deorbit burn. This is why the ascent
+//   loop below deliberately keeps the SSMEs burning near-horizontal until
+//   periapsis is already close to target, instead of cutting the instant
+//   apoapsis first reaches it -- vis-viva math shows that difference is
+//   ~72 m/s (early cutoff) vs. ~10 m/s (proper insertion) of OMS trim, and
+//   every m/s saved there is margin for the ~44 m/s deorbit burn plus RCS
+//   attitude control during reentry, all drawn from the same 300 m/s pool.
+//
 // PHYSICS BASIS (from the in-flight dV readout, cross-checked against the
 // Tsiolkovsky rocket equation -- both agree to <1%, so the numbers below
 // are trustworthy, not guessed):
@@ -42,7 +51,11 @@ SET CONFIG:IPU TO 2000.
 // ---------------------------- CONFIG ----------------------------
 GLOBAL TARGET_APO IS 80000.                    // target circular orbit altitude, m
 GLOBAL DEORBIT_PE IS 30000.                    // deorbit target periapsis, m
-GLOBAL RUNWAY_POS IS LATLNG(-0.048679, -74.724375). // KSC runway centerline (VERIFY IN-GAME)
+GLOBAL RUNWAY_POS IS LATLNG(-0.040556, -74.691111). // KSC runway, converted from the published
+                                                     // 0°2'26"S 74°41'28"W (KSP wiki). VERIFY IN-GAME
+                                                     // by parking on the runway and printing
+                                                     // SHIP:GEOPOSITION -- this is the best public
+                                                     // reference, not a first-party measurement.
 GLOBAL GLIDE_LEAD_DEG IS 18.                   // TUNE THIS after each attempt
 GLOBAL G0 IS 9.80665.
 GLOBAL GEAR_DEPLOY_ALT IS 600.                 // radar altitude to drop gear, m
@@ -87,12 +100,61 @@ FUNCTION TOTAL_AVAILABLE_THRUST {
     RETURN F.
 }
 
+// FAILSAFE: bounded wait for STAGE:READY instead of an unconditional WAIT
+// UNTIL, so a staging fault (e.g. a decoupler that never reports ready)
+// can't hang the whole mission forever.
 FUNCTION DO_STAGE {
-    WAIT UNTIL STAGE:READY.
+    LOCAL waitStart IS TIME:SECONDS.
+    WAIT UNTIL STAGE:READY OR TIME:SECONDS - waitStart > 10.
+    IF NOT STAGE:READY {
+        LOG_MSG("WARNING: STAGE:READY timed out after 10s, staging anyway.").
+    }
     STAGE.
     WAIT 0.1.
     LOG_MSG("Staged -> now on stage " + STAGE:NUMBER + ".").
     WAIT 0.5.
+}
+
+// FAILSAFE: engine-out check with a grace period. Engines take a moment to
+// spool up to full AVAILABLETHRUST after ignition, so checking THRUST vs.
+// AVAILABLETHRUST immediately at ignition false-triggers on every launch.
+// Only start checking once thrust has had time to stabilize.
+FUNCTION CHECK_ENGINE_OUT {
+    PARAMETER elist, graceSeconds, igniteTime.
+    IF TIME:SECONDS - igniteTime < graceSeconds { RETURN TRUE. }
+    LOCAL liveCount IS 0.
+    FOR e IN elist {
+        IF e:IGNITION AND NOT e:FLAMEOUT AND e:THRUST > e:AVAILABLETHRUST * 0.5 {
+            SET liveCount TO liveCount + 1.
+        }
+    }
+    RETURN liveCount = elist:LENGTH.
+}
+
+// FAILSAFE: total MonoPropellant available to the OMS pods, so we never
+// commit to a burn node we can't actually finish.
+FUNCTION OMS_MONOPROP_AVAILABLE {
+    LOCAL total IS 0.
+    LIST PARTS IN allParts.
+    FOR p IN allParts {
+        IF p:NAME = "omsEngine" {
+            FOR r IN p:RESOURCES {
+                IF r:NAME = "MonoPropellant" { SET total TO total + r:AMOUNT. }
+            }
+        }
+    }
+    RETURN total.
+}
+
+// FAILSAFE: rough propellant-to-dv check using the rocket equation with the
+// OMS Isp (O-10 "Puff" engines, stock Isp ~120s vacuum), so a deorbit/circ
+// burn that would run the tanks dry gets caught before it's attempted.
+FUNCTION OMS_DV_AVAILABLE {
+    LOCAL propMass IS OMS_MONOPROP_AVAILABLE() * 0.0008. // ~0.8 kg per unit, stock MonoPropellant
+    LOCAL wetMass IS SHIP:MASS.
+    LOCAL dryMass IS MAX(wetMass - propMass, 1).
+    LOCAL isp IS 120.
+    RETURN isp * G0 * LN(wetMass / dryMass).
 }
 
 // ---------------------------- ORBITAL MATH ----------------------------
@@ -193,9 +255,22 @@ FUNCTION EXECUTE_NODE {
     LOCAL initialDv IS nd:BURNVECTOR:MAG.
     LOCK THROTTLE TO MIN(1.0, MAX(0.02, nd:BURNVECTOR:MAG / 15)).
 
-    UNTIL nd:BURNVECTOR:MAG < 0.2 OR nd:BURNVECTOR:MAG > initialDv {
+    // FAILSAFE: cap the burn at 3x the estimated duration (plus a 10s floor)
+    // so a burn that never converges -- dead engine, node math gone wrong --
+    // can't run the tanks dry silently instead of stopping and reporting.
+    LOCAL burnDeadline IS TIME:SECONDS + MAX(burnTime * 3, 10).
+
+    UNTIL nd:BURNVECTOR:MAG < 0.2 OR nd:BURNVECTOR:MAG > initialDv OR TOTAL_AVAILABLE_THRUST() < 0.1 {
+        IF TIME:SECONDS > burnDeadline {
+            LOG_MSG("WARNING: burn exceeded 3x estimated time, aborting node execution.").
+            BREAK.
+        }
         LOCK STEERING TO nd:BURNVECTOR.
         WAIT 0.02.
+    }
+
+    IF TOTAL_AVAILABLE_THRUST() < 0.1 {
+        LOG_MSG("WARNING: no thrust available mid-burn (engine failure or propellant exhausted).").
     }
 
     LOCK THROTTLE TO 0.
@@ -235,12 +310,28 @@ FUNCTION ASCENT {
     LOG_MSG("Boosters flamed out, jettisoning.").
     DO_STAGE().
 
-    // Continue on SSMEs, following prograde, throttling to hit target
-    // apoapsis exactly rather than burning a fixed duration.
+    // Continue on SSMEs, following prograde. The OMS pods only carry ~300 m/s
+    // combined with RCS (confirmed from the stock craft's flight notes), shared
+    // with the deorbit burn later, so MECO should not happen the instant
+    // apoapsis first touches target -- that leaves periapsis deep in the
+    // atmosphere and costs ~70 m/s of OMS just to fix (vis-viva check: cutting
+    // at Pe=0/Ap=80km needs ~72 m/s trim vs. ~10 m/s if Pe is already near
+    // target when MECO happens). So: keep burning near-horizontal until BOTH
+    // apoapsis and periapsis are near target, capped so we never overshoot
+    // apoapsis by more than 15%.
+    LOCAL ssmeIgniteTime IS TIME:SECONDS.
     LOCK STEERING TO SHIP:SRFPROGRADE.
-    UNTIL SHIP:APOAPSIS >= TARGET_APO OR ALL_FLAMED_OUT(ssmes) {
-        IF SHIP:APOAPSIS > TARGET_APO - 2000 {
-            LOCK THROTTLE TO 0.15. // fine trim near target
+    UNTIL (SHIP:APOAPSIS >= TARGET_APO AND SHIP:PERIAPSIS >= TARGET_APO * 0.85) OR ALL_FLAMED_OUT(ssmes) {
+        // FAILSAFE: engine-out check with a 3s spool-up grace period. Checking
+        // THRUST vs. AVAILABLETHRUST from the instant of ignition false-triggers
+        // every launch because engines aren't at full thrust yet -- this is
+        // exactly the bug that sinks most "engine-out failsafe" scripts.
+        IF NOT CHECK_ENGINE_OUT(ssmes, 3, ssmeIgniteTime) {
+            LOG_MSG("WARNING: SSME engine-out detected. Continuing on remaining thrust.").
+        }
+
+        IF SHIP:APOAPSIS > TARGET_APO * 1.15 {
+            LOCK THROTTLE TO 0.1. // overshoot safety, should rarely trigger
         } ELSE {
             LOCK THROTTLE TO 1.0.
         }
@@ -249,7 +340,17 @@ FUNCTION ASCENT {
     LOCK THROTTLE TO 0.
     WAIT 0.5.
     UNLOCK THROTTLE.
-    LOG_MSG("Target apoapsis reached: " + ROUND(SHIP:APOAPSIS,0) + " m.").
+    LOG_MSG("SSME cutoff: Ap=" + ROUND(SHIP:APOAPSIS,0) + " Pe=" + ROUND(SHIP:PERIAPSIS,0) + " m.").
+
+    // FAILSAFE: if the SSMEs flamed out (engine failure or ran the tank dry)
+    // before reaching a viable apoapsis, an OMS circularization burn from here
+    // would need far more than the ~300 m/s available and will not succeed.
+    // Flag it clearly rather than silently proceeding into a doomed sequence.
+    IF SHIP:APOAPSIS < TARGET_APO * 0.5 {
+        LOG_MSG("CRITICAL: apoapsis " + ROUND(SHIP:APOAPSIS,0) + "m is far below target -- ").
+        LOG_MSG("SSMEs likely underperformed or flamed out early. OMS cannot make up this").
+        LOG_MSG("much dv. Mission will attempt circularization anyway but may re-enter.").
+    }
 
     // Shut down SSMEs explicitly, jettison tank, bring up OMS.
     FOR e IN ssmes { e:SHUTDOWN(). }
@@ -266,6 +367,18 @@ FUNCTION ASCENT {
 FUNCTION CIRCULARIZE {
     SAS OFF.
     LOCAL nd IS MAKE_CIRC_NODE().
+
+    // FAILSAFE: verify the OMS pods can actually deliver this dv before
+    // committing. The pool is only ~300 m/s total, and if it's already short
+    // here there won't be anything left for the deorbit burn either.
+    LOCAL needed IS ABS(nd:DELTAV:MAG).
+    LOCAL available IS OMS_DV_AVAILABLE().
+    LOG_MSG("Circularization needs " + ROUND(needed,1) + " m/s; OMS has ~" + ROUND(available,1) + " m/s.").
+    IF needed > available {
+        LOG_MSG("CRITICAL: insufficient OMS propellant for full circularization.").
+        LOG_MSG("Burning anyway with whatever propellant remains; orbit may stay eccentric.").
+    }
+
     EXECUTE_NODE(nd).
     LOG_MSG("Orbit: Ap=" + ROUND(SHIP:APOAPSIS,0) + " Pe=" + ROUND(SHIP:PERIAPSIS,0) + ".").
 }
@@ -275,6 +388,19 @@ FUNCTION CIRCULARIZE {
 // ============================================================================
 FUNCTION DEORBIT {
     LOCAL nd IS MAKE_DEORBIT_NODE().
+
+    // FAILSAFE: same propellant check as circularization -- a deorbit burn
+    // that runs out partway leaves periapsis higher than planned, which at
+    // least is a *safe* failure (stays in orbit) rather than an unsafe one,
+    // so we still attempt it, but we want it logged rather than silent.
+    LOCAL needed IS ABS(nd:DELTAV:MAG).
+    LOCAL available IS OMS_DV_AVAILABLE().
+    LOG_MSG("Deorbit needs " + ROUND(needed,1) + " m/s; OMS has ~" + ROUND(available,1) + " m/s.").
+    IF needed > available {
+        LOG_MSG("WARNING: insufficient OMS propellant for full deorbit burn.").
+        LOG_MSG("Periapsis will end up higher than planned -- rerun deorbit next orbit if so.").
+    }
+
     EXECUTE_NODE(nd).
     LOG_MSG("Deorbit burn complete. Pe=" + ROUND(SHIP:PERIAPSIS,0) + " m.").
 }
