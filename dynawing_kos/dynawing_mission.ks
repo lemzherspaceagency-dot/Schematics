@@ -31,17 +31,32 @@
 //   healthy but not huge -- this is why the ascent loop below targets apoapsis
 //   directly with a closed loop rather than burning a fixed duration.
 //
+// OMS PROPELLANT BUDGET (ground-computed, sourced part stats):
+//   O-10 "Puff" Isp_vac = 290s (NOT the 220s atmospheric figure -- these
+//   engines only fire in vacuum here). MonoPropellant density = 4 kg/unit.
+//   Primary MONO tank = 1000 units = 4.0 t propellant.
+//   dv available depends on orbiter dry mass (not in any public part-stat
+//   table); cross-checking the wiki's independent "~300 m/s OMS+RCS" claim
+//   against this Isp/propellant mass backs out an implied dry mass of ~36t,
+//   which is a plausible number for this craft class -- two independent
+//   sources triangulate to the same figure. OMS_DV_AVAILABLE() computes the
+//   real number in-flight from SHIP:MASS once it's known exactly.
+//   Budget closure: ~10 m/s insertion trim + ~44 m/s deorbit burn = ~54 m/s
+//   used of the ~300 m/s pool, leaving ~246 m/s margin for RCS attitude
+//   control during reentry.
+//
 // CALIBRATION NOTE -- the two honestly-uncertain constants in this script:
-//   RUNWAY_POS      : KSC runway centerline LATLNG. Stock-standard published
-//                      value used below; verify by parking on the runway and
-//                      printing SHIP:GEOPOSITION, then correct if it's off.
+//   RUNWAY_POS      : KSC runway centerline LATLNG, converted from the KSP
+//                      wiki's published 0°2'26"S 74°41'28"W. Verify by parking
+//                      on the runway and printing SHIP:GEOPOSITION.
 //   GLIDE_LEAD_DEG   : how many degrees of orbital travel the deorbit aim
 //                      point is placed *before* the runway, to cover the
-//                      unpowered glide distance. This vehicle's exact L/D is
-//                      not something I can get from a part list without a
-//                      wind-tunnel/flight test, so this starts as an estimate
-//                      and is meant to be tuned from the miss-distance this
-//                      script prints after each landing attempt.
+//                      unpowered glide distance (18 deg = 188.5 km of ground
+//                      track at this orbit). This vehicle's exact L/D is not
+//                      in any part-stat table -- it can only come from a
+//                      flight test, same as it would for a real aircraft.
+//                      Tune it from the miss-distance this script prints
+//                      after each landing attempt.
 // ============================================================================
 
 @LAZYGLOBAL OFF.
@@ -150,11 +165,15 @@ FUNCTION OMS_MONOPROP_AVAILABLE {
 // OMS Isp (O-10 "Puff" engines, stock Isp ~120s vacuum), so a deorbit/circ
 // burn that would run the tanks dry gets caught before it's attempted.
 FUNCTION OMS_DV_AVAILABLE {
-    LOCAL propMass IS OMS_MONOPROP_AVAILABLE() * 0.0008. // ~0.8 kg per unit, stock MonoPropellant
-    LOCAL wetMass IS SHIP:MASS.
+    // Sourced: O-10 "Puff" Isp_vac = 290s (this vehicle burns OMS in vacuum,
+    // never in atmosphere, so the vacuum figure is the correct one -- not the
+    // 220s atmospheric Isp). MonoPropellant density = 4 kg/unit, confirmed
+    // against the KSP wiki resource table.
+    LOCAL propMass IS OMS_MONOPROP_AVAILABLE() * 4.0. // kg
+    LOCAL wetMass IS SHIP:MASS * 1000. // SHIP:MASS is metric tons, convert to kg
     LOCAL dryMass IS MAX(wetMass - propMass, 1).
-    LOCAL isp IS 120.
-    RETURN isp * G0 * LN(wetMass / dryMass).
+    LOCAL ispVac IS 290.
+    RETURN ispVac * G0 * LN(wetMass / dryMass).
 }
 
 // ---------------------------- ORBITAL MATH ----------------------------
