@@ -61,7 +61,6 @@
 
 @LAZYGLOBAL OFF.
 CLEARSCREEN.
-SET CONFIG:IPU TO 2000.
 
 // ---------------------------- CONFIG ----------------------------
 GLOBAL TARGET_APO IS 80000.                    // target circular orbit altitude, m
@@ -76,10 +75,107 @@ GLOBAL G0 IS 9.80665.
 GLOBAL GEAR_DEPLOY_ALT IS 600.                 // radar altitude to drop gear, m
 GLOBAL FLARE_ALT IS 60.                        // radar altitude to begin flare, m
 
+// HONEST NOTE on logging rate: KSP's physics engine runs a fixed 20ms tick
+// (50 Hz) at normal warp -- that is a hard engine limit, not a kOS setting,
+// so "every 0.01s" (100 Hz) is not something any script running inside KSP
+// can actually do. What this script does instead: log and refresh the HUD on
+// EVERY physics tick, i.e. as fast as the game itself updates, which is the
+// real ceiling. CONFIG:IPU is raised so the CPU has enough instruction budget
+// to do that plus fly the ship in the same tick without falling behind.
+SET CONFIG:IPU TO 4000.
+GLOBAL BLACKBOX_PATH IS "0:/dynawing_blackbox.csv". // archive volume: unlimited size,
+                                                     // survives the flight, pull it off disk
+                                                     // after landing (or after a crash) for
+                                                     // post-flight debugging.
+
+// ---------------------------- MISSION STATE (for HUD + black box) ----------------------------
+GLOBAL MISSION_PHASE IS "PRELAUNCH".
+GLOBAL RECENT_MSGS IS LIST().        // last N log lines, newest last
+GLOBAL WARNING_COUNT IS 0.
+GLOBAL LAST_WARNING IS "none".
+GLOBAL BLACKBOX_ROWS IS 0.
+
 // ---------------------------- TELEMETRY / LOG ----------------------------
 FUNCTION LOG_MSG {
     PARAMETER msg.
-    PRINT "[T+" + ROUND(MISSIONTIME,1) + "s] " + msg.
+    LOCAL line IS "[T+" + ROUND(MISSIONTIME,1) + "s] " + msg.
+    RECENT_MSGS:ADD(line).
+    IF RECENT_MSGS:LENGTH > 8 { RECENT_MSGS:REMOVE(0). }
+    IF msg:CONTAINS("WARNING") OR msg:CONTAINS("CRITICAL") {
+        SET WARNING_COUNT TO WARNING_COUNT + 1.
+        SET LAST_WARNING TO line.
+    }
+}
+
+// Pad/truncate a string to a fixed width so PRINT AT() cleanly overwrites
+// whatever was on that screen cell last tick (otherwise a shorter new string
+// leaves stale characters from a longer old one).
+FUNCTION PAD {
+    PARAMETER s, w.
+    LOCAL str IS s + "".
+    IF str:LENGTH > w { RETURN str:SUBSTRING(0, w). }
+    UNTIL str:LENGTH >= w { SET str TO str + " ". }
+    RETURN str.
+}
+
+// ---------------------------- BLACK BOX FLIGHT RECORDER ----------------------------
+// Full state snapshot on every physics tick, written to the archive volume as
+// CSV. If the mission succeeds OR fails (crash, loss of control, whatever),
+// this file survives and can be handed back for post-flight analysis: every
+// column needed to reconstruct what the vehicle was doing at any instant.
+FUNCTION BLACKBOX_INIT {
+    IF EXISTS(BLACKBOX_PATH) { DELETEPATH(BLACKBOX_PATH). }
+    LOG "t_UT,mission_time,phase,altitude,radar_alt,vspeed,airspeed,groundspeed,orbital_speed," +
+        "apoapsis,periapsis,mass_t,throttle,stage,pitch,heading,roll,dynamic_pressure," +
+        "lat,lng,gear,brakes,rcs,sas,warning_count,last_warning"
+        TO BLACKBOX_PATH.
+}
+
+FUNCTION BLACKBOX_LOG {
+    LOCAL row IS TIME:SECONDS + "," + ROUND(MISSIONTIME,3) + "," + MISSION_PHASE + "," +
+        ROUND(SHIP:ALTITUDE,1) + "," + ROUND(ALT:RADAR,1) + "," + ROUND(SHIP:VERTICALSPEED,2) + "," +
+        ROUND(SHIP:AIRSPEED,2) + "," + ROUND(SHIP:GROUNDSPEED,2) + "," + ROUND(SHIP:VELOCITY:ORBIT:MAG,2) + "," +
+        ROUND(SHIP:APOAPSIS,1) + "," + ROUND(SHIP:PERIAPSIS,1) + "," + ROUND(SHIP:MASS,3) + "," +
+        ROUND(THROTTLE,3) + "," + STAGE:NUMBER + "," +
+        ROUND(SHIP:FACING:PITCH,2) + "," + ROUND(SHIP:FACING:YAW,2) + "," + ROUND(SHIP:FACING:ROLL,2) + "," +
+        ROUND(SHIP:Q,4) + "," + ROUND(SHIP:GEOPOSITION:LAT,5) + "," + ROUND(SHIP:GEOPOSITION:LNG,5) + "," +
+        GEAR + "," + BRAKES + "," + RCS + "," + SAS + "," + WARNING_COUNT + "," + LAST_WARNING.
+    LOG row TO BLACKBOX_PATH.
+    SET BLACKBOX_ROWS TO BLACKBOX_ROWS + 1.
+}
+
+// ---------------------------- HUD ----------------------------
+FUNCTION HUD_INIT {
+    CLEARSCREEN.
+    PRINT "======================= DYNAWING MISSION HUD =======================" AT(0,0).
+    PRINT "----------------------------------------------------------------------" AT(0,15).
+    PRINT "RECENT EVENTS:" AT(0,16).
+    PRINT "----------------------------------------------------------------------" AT(0,25).
+}
+
+FUNCTION HUD_UPDATE {
+    PRINT PAD("PHASE: " + MISSION_PHASE, 40) AT(0,1).
+    PRINT PAD("T+ " + ROUND(MISSIONTIME,1) + " s   UT " + ROUND(TIME:SECONDS,1), 40) AT(0,2).
+    PRINT PAD("Altitude:  " + ROUND(SHIP:ALTITUDE,0) + " m   Radar: " + ROUND(ALT:RADAR,0) + " m", 50) AT(0,3).
+    PRINT PAD("V.Speed:   " + ROUND(SHIP:VERTICALSPEED,1) + " m/s", 40) AT(0,4).
+    PRINT PAD("Airspeed:  " + ROUND(SHIP:AIRSPEED,1) + " m/s   Ground: " + ROUND(SHIP:GROUNDSPEED,1) + " m/s", 55) AT(0,5).
+    PRINT PAD("Orbit vel: " + ROUND(SHIP:VELOCITY:ORBIT:MAG,1) + " m/s", 40) AT(0,6).
+    PRINT PAD("Apoapsis:  " + ROUND(SHIP:APOAPSIS,0) + " m", 40) AT(0,7).
+    PRINT PAD("Periapsis: " + ROUND(SHIP:PERIAPSIS,0) + " m", 40) AT(0,8).
+    PRINT PAD("Throttle:  " + ROUND(THROTTLE*100,0) + " %   Stage: " + STAGE:NUMBER, 40) AT(0,9).
+    PRINT PAD("Mass:      " + ROUND(SHIP:MASS,2) + " t   Q: " + ROUND(SHIP:Q,3), 40) AT(0,10).
+    PRINT PAD("Attitude:  P " + ROUND(SHIP:FACING:PITCH,1) + "  Y " + ROUND(SHIP:FACING:YAW,1) + "  R " + ROUND(SHIP:FACING:ROLL,1), 55) AT(0,11).
+    PRINT PAD("Gear:" + GEAR + " Brakes:" + BRAKES + " RCS:" + RCS + " SAS:" + SAS, 55) AT(0,12).
+    PRINT PAD("Dist to runway: " + ROUND(RUNWAY_POS:DISTANCE,0) + " m   Brg: " + ROUND(RUNWAY_POS:HEADING,0) + " deg", 55) AT(0,13).
+    PRINT PAD("Warnings: " + WARNING_COUNT + "   Blackbox rows: " + BLACKBOX_ROWS, 55) AT(0,14).
+
+    LOCAL i IS 0.
+    UNTIL i >= 8 {
+        LOCAL msg IS "".
+        IF i < RECENT_MSGS:LENGTH { SET msg TO RECENT_MSGS[i]. }
+        PRINT PAD(msg, 70) AT(0, 17+i).
+        SET i TO i + 1.
+    }
 }
 
 // ---------------------------- ENGINE HELPERS ----------------------------
@@ -174,6 +270,23 @@ FUNCTION OMS_DV_AVAILABLE {
     LOCAL dryMass IS MAX(wetMass - propMass, 1).
     LOCAL ispVac IS 290.
     RETURN ispVac * G0 * LN(wetMass / dryMass).
+}
+
+// ---------------------------- TIMEWARP ----------------------------
+// Warp through dead coast time (ascent->apoapsis, deorbit->reentry interface)
+// instead of sitting there in real time. WARPTO handles the deceleration
+// itself -- it's the same call the game uses for "warp to next node," and it
+// already refuses to physics-warp inside the atmosphere, so it's safe to call
+// even when the target time is close to atmospheric entry.
+FUNCTION WARP_TO_UT {
+    PARAMETER targetUT, leadSeconds.
+    LOCAL t IS targetUT - leadSeconds.
+    IF t > TIME:SECONDS + 5 {
+        LOG_MSG("Warping " + ROUND(t - TIME:SECONDS,0) + "s ahead to save real time.").
+        KUNIVERSE:TIMEWARP:WARPTO(t).
+        WAIT UNTIL TIME:SECONDS >= t - 1.
+    }
+    SET KUNIVERSE:TIMEWARP:WARP TO 0.
 }
 
 // ---------------------------- ORBITAL MATH ----------------------------
@@ -304,6 +417,7 @@ FUNCTION EXECUTE_NODE {
 // PHASE 1: LIFTOFF + GRAVITY TURN (Boosters + SSMEs)
 // ============================================================================
 FUNCTION ASCENT {
+    SET MISSION_PHASE TO "ASCENT-LIFTOFF".
     LOG_MSG("Beginning ascent sequence.").
     SAS OFF.
     RCS OFF.
@@ -327,6 +441,7 @@ FUNCTION ASCENT {
     // Booster separation on flameout (closed loop, no fixed timer)
     WAIT UNTIL ALL_FLAMED_OUT(boosters) OR SHIP:ALTITUDE > 20000.
     LOG_MSG("Boosters flamed out, jettisoning.").
+    SET MISSION_PHASE TO "ASCENT-SSME".
     DO_STAGE().
 
     // Continue on SSMEs, following prograde. The OMS pods only carry ~300 m/s
@@ -378,12 +493,14 @@ FUNCTION ASCENT {
     UNLOCK STEERING.
     SAS ON.
     LOG_MSG("Ascent complete, coasting to apoapsis for circularization.").
+    SET MISSION_PHASE TO "COAST-TO-APOAPSIS".
 }
 
 // ============================================================================
 // PHASE 2: CIRCULARIZE
 // ============================================================================
 FUNCTION CIRCULARIZE {
+    SET MISSION_PHASE TO "CIRCULARIZE".
     SAS OFF.
     LOCAL nd IS MAKE_CIRC_NODE().
 
@@ -406,7 +523,9 @@ FUNCTION CIRCULARIZE {
 // PHASE 3: DEORBIT
 // ============================================================================
 FUNCTION DEORBIT {
+    SET MISSION_PHASE TO "DEORBIT-PLANNING".
     LOCAL nd IS MAKE_DEORBIT_NODE().
+    SET MISSION_PHASE TO "DEORBIT-BURN".
 
     // FAILSAFE: same propellant check as circularization -- a deorbit burn
     // that runs out partway leaves periapsis higher than planned, which at
@@ -431,6 +550,7 @@ FUNCTION DEORBIT {
 // runway aim point.
 // ============================================================================
 FUNCTION REENTRY_AND_GLIDE {
+    SET MISSION_PHASE TO "REENTRY-HOLD".
     LOG_MSG("Entering atmosphere, starting reentry attitude hold.").
     RCS ON.
     SAS OFF.
@@ -441,6 +561,7 @@ FUNCTION REENTRY_AND_GLIDE {
     // Hold retrograde through the hottest part of reentry.
     WAIT UNTIL SHIP:ALTITUDE < 40000 OR SHIP:AIRSPEED < 800.
 
+    SET MISSION_PHASE TO "GLIDE".
     LOG_MSG("Transitioning to glide guidance.").
     RCS OFF.
 
@@ -462,10 +583,12 @@ FUNCTION REENTRY_AND_GLIDE {
         WAIT 0.1.
     }
 
+    SET MISSION_PHASE TO "FINAL-APPROACH".
     LOG_MSG("Final approach. Distance to runway: " + ROUND(RUNWAY_POS:DISTANCE,0) + " m.").
     IF NOT GEAR { GEAR ON. }
 
     // Flare: reduce descent rate as we near the ground.
+    SET MISSION_PHASE TO "FLARE".
     UNTIL SHIP:STATUS = "LANDED" OR SHIP:STATUS = "SPLASHED" {
         LOCAL courseToRunway IS RUNWAY_POS:HEADING.
         LOCAL flarePitch IS -2.
@@ -474,26 +597,50 @@ FUNCTION REENTRY_AND_GLIDE {
         WAIT 0.05.
     }
 
+    SET MISSION_PHASE TO "ROLLOUT".
     LOG_MSG("Touchdown detected. Applying brakes.").
     UNLOCK STEERING.
     BRAKES ON.
     WAIT UNTIL SHIP:VELOCITY:SURFACE:MAG < 1.
 
+    SET MISSION_PHASE TO "MISSION-COMPLETE".
     LOCAL missDist IS RUNWAY_POS:DISTANCE.
     LOG_MSG("Vehicle stopped. Miss distance from runway aim point: " + ROUND(missDist,0) + " m.").
     LOG_MSG("If short: decrease GLIDE_LEAD_DEG. If long/overshot: increase it.").
-    PRINT "MISSION COMPLETE.".
+    HUD_UPDATE(). // final draw so the HUD shows the landed state, not a stale tick
+    PRINT PAD(">>> MISSION COMPLETE -- black box: " + BLACKBOX_ROWS + " rows at " + BLACKBOX_PATH, 70) AT(0,26).
 }
 
 // ============================================================================
 // MAIN SEQUENCE
 // ============================================================================
+BLACKBOX_INIT().
+HUD_INIT().
 LOG_MSG("Dynawing autonomous mission starting.").
+
+// Background telemetry trigger: runs every physics tick regardless of what
+// the main flow below is doing (even while it's blocked in a WAIT UNTIL
+// inside another function), so the HUD and black box never go stale and
+// never miss a tick just because the main thread is busy elsewhere.
+WHEN TRUE THEN {
+    HUD_UPDATE().
+    BLACKBOX_LOG().
+    PRESERVE.
+}
+
 ASCENT().
-WAIT UNTIL ETA:APOAPSIS < 60.
+SET MISSION_PHASE TO "COAST-TO-APOAPSIS".
+WARP_TO_UT(TIME:SECONDS + ETA:APOAPSIS, 30). // warp the ascent->apoapsis coast, drop out 30s early
+WAIT UNTIL ETA:APOAPSIS < 30.
 CIRCULARIZE().
 LOG_MSG("Orbit achieved. Coasting before deorbit planning.").
 WAIT 5.
 DEORBIT().
+SET MISSION_PHASE TO "COAST-TO-REENTRY".
+// Warp the long coast back down, dropping out with a generous 120s margin
+// before periapsis so we're well clear of the atmosphere when warp ends --
+// WARPTO already refuses to physics-warp inside atmosphere, this margin is
+// just to make sure REENTRY_AND_GLIDE gets full manual control in time.
+WARP_TO_UT(TIME:SECONDS + ETA:PERIAPSIS, 120).
 WAIT UNTIL SHIP:ALTITUDE < 70000.
 REENTRY_AND_GLIDE().
