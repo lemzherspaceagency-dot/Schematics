@@ -359,7 +359,15 @@ FUNCTION MAKE_CIRC_NODE {
     LOCAL vTarget IS V_CIRC(apR).
     LOCAL dv IS vTarget - vNow.
     LOG_MSG("Circularize: v_now=" + ROUND(vNow,1) + " v_target=" + ROUND(vTarget,1) + " dv=" + ROUND(dv,1)).
-    LOCAL nd IS NODE(TIME:SECONDS + ETA:APOAPSIS, 0, 0, dv).
+    // FIX (post-flight #5): if a warp overshoot already carried us past
+    // apoapsis, ETA:APOAPSIS reports time to NEXT orbit's apoapsis (nearly a
+    // full period) instead of "we're basically there." Scheduling the node
+    // that far out would silently waste most of an orbit. If it's not
+    // actually close, just burn now instead of waiting for a distant
+    // apoapsis that's already behind us.
+    LOCAL burnEta IS ETA:APOAPSIS.
+    IF burnEta > 300 { SET burnEta TO 10. }
+    LOCAL nd IS NODE(TIME:SECONDS + burnEta, 0, 0, dv).
     ADD nd.
     RETURN nd.
 }
@@ -731,8 +739,19 @@ WHEN TRUE THEN {
 
 ASCENT().
 SET MISSION_PHASE TO "COAST-TO-APOAPSIS".
+// FIX (post-flight #5): WARPTO's stop precision isn't exact -- it can settle
+// a few seconds late, which is enough to carry the ship PAST apoapsis. Once
+// that happens, ETA:APOAPSIS flips from "small" to "time until NEXT orbit's
+// apoapsis" (nearly a full period, ~1875s here), and a plain
+// "WAIT UNTIL ETA:APOAPSIS < 30" then hangs for the better part of an orbit
+// waiting on a condition that already came and went. Bounding the wait with
+// a real-time timeout means it always moves on, whichever side of apoapsis
+// the warp actually landed on.
+LOCK STEERING TO SHIP:PROGRADE. // minimize drag during the coast, not just SAS-whatever-it-was-holding
 WARP_TO_UT(TIME:SECONDS + ETA:APOAPSIS, 30). // warp the ascent->apoapsis coast, drop out 30s early
-WAIT UNTIL ETA:APOAPSIS < 30.
+LOCAL apoWaitStart IS TIME:SECONDS.
+WAIT UNTIL ETA:APOAPSIS < 30 OR TIME:SECONDS - apoWaitStart > 60.
+UNLOCK STEERING.
 CIRCULARIZE().
 LOG_MSG("Orbit achieved. Coasting before deorbit planning.").
 WAIT 5.
