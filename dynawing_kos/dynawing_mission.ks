@@ -566,6 +566,18 @@ FUNCTION EXECUTE_NODE {
         RETURN.
     }
 
+    // FIX (blind-spot report): the black box samples once per physics tick,
+    // and during high rails warp a single tick can span a large jump in game
+    // time -- so if ignition happened mid-jump, one row could show "T-20min,
+    // nothing happening" and the very next show "already burned," with the
+    // actual ignition instant never captured by the periodic sample. This is
+    // an explicit, event-triggered log fired at the exact moment throttle
+    // goes nonzero, independent of the regular per-tick sampling, so the
+    // real ignition moment (and the ETA/attitude at that instant) is always
+    // visible in the black box even if it happened inside a warp jump.
+    LOG_MSG("IGNITION: throttle going live now. nd:ETA=" + ROUND(nd:ETA,1) +
+        "s, warp=" + KUNIVERSE:TIMEWARP:WARP + ", VANG=" + ROUND(VANG(SHIP:FACING:FOREVECTOR, nd:BURNVECTOR),2) + " deg.").
+
     LOCAL initialDv IS nd:BURNVECTOR:MAG.
     LOCK THROTTLE TO MIN(1.0, MAX(0.02, nd:BURNVECTOR:MAG / 15)).
 
