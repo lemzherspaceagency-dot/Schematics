@@ -325,6 +325,15 @@ FUNCTION OMS_DV_AVAILABLE {
 // 70km when it's called, KSP silently restricts it to 4x no matter what the
 // script asks for. Wait until clear of the atmosphere first so the warp
 // request actually gets the fast rails mode instead of being throttled.
+// FIX (post-flight #5, take 2): KUNIVERSE:TIMEWARP:WARPTO() picks its own
+// deceleration curve and it isn't exact -- that's what carried the ship past
+// apoapsis last flight. Replaced with a manually-capped, stepped-down warp:
+// we choose the rails warp index ourselves based on time remaining, ramp it
+// down in stages as the target approaches, and cut it several seconds early
+// so real-time WAIT closes the last stretch precisely. Slower to reach the
+// target than WARPTO's max-speed approach, but it can't overshoot the same
+// way because we're the ones deciding when to slow down, not trusting its
+// internal curve to guess right.
 FUNCTION WARP_TO_UT {
     PARAMETER targetUT, leadSeconds.
     IF SHIP:ALTITUDE < 70000 AND SHIP:APOAPSIS > 70000 {
@@ -333,8 +342,16 @@ FUNCTION WARP_TO_UT {
     }
     LOCAL t IS targetUT - leadSeconds.
     IF t > TIME:SECONDS + 5 {
-        LOG_MSG("Warping " + ROUND(t - TIME:SECONDS,0) + "s ahead to save real time.").
-        KUNIVERSE:TIMEWARP:WARPTO(t).
+        LOG_MSG("Warping " + ROUND(t - TIME:SECONDS,0) + "s ahead (capped, stepped-down warp).").
+        UNTIL TIME:SECONDS >= t - 10 {
+            LOCAL remain IS t - TIME:SECONDS.
+            IF remain > 600 { SET KUNIVERSE:TIMEWARP:WARP TO 4. }      // ~100x
+            ELSE IF remain > 120 { SET KUNIVERSE:TIMEWARP:WARP TO 3. } // ~50x
+            ELSE IF remain > 30 { SET KUNIVERSE:TIMEWARP:WARP TO 2. }  // ~10x
+            ELSE { SET KUNIVERSE:TIMEWARP:WARP TO 1. }                 // ~5x
+            WAIT 1.
+        }
+        SET KUNIVERSE:TIMEWARP:WARP TO 0.
         WAIT UNTIL TIME:SECONDS >= t - 1.
     }
     SET KUNIVERSE:TIMEWARP:WARP TO 0.
