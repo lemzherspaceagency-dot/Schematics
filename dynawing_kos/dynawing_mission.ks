@@ -298,14 +298,16 @@ FUNCTION TOTAL_AVAILABLE_THRUST {
 // a steeper climb costs a little more gravity-loss dv than the old shallow
 // ramp -- watch the ascent margin (already logged) if this needs retuning.
 FUNCTION PITCH_PROGRAM {
-    LOCAL alt IS SHIP:ALTITUDE.
-    IF alt < TURN_START_ALT { RETURN 90. }
-    IF alt < TURN_MID_ALT {
-        LOCAL frac IS (alt - TURN_START_ALT) / (TURN_MID_ALT - TURN_START_ALT).
+    // "alt" collides with kOS's built-in ALT structure (ALT:RADAR etc.) --
+    // same class of clobber as the earlier "r" vs. R() bug. Renamed.
+    LOCAL curAlt IS SHIP:ALTITUDE.
+    IF curAlt < TURN_START_ALT { RETURN 90. }
+    IF curAlt < TURN_MID_ALT {
+        LOCAL frac IS (curAlt - TURN_START_ALT) / (TURN_MID_ALT - TURN_START_ALT).
         RETURN 90 - (90 - TURN_MID_PITCH) * frac.
     }
-    IF alt < TURN_END_ALT {
-        LOCAL frac2 IS (alt - TURN_MID_ALT) / (TURN_END_ALT - TURN_MID_ALT).
+    IF curAlt < TURN_END_ALT {
+        LOCAL frac2 IS (curAlt - TURN_MID_ALT) / (TURN_END_ALT - TURN_MID_ALT).
         RETURN TURN_MID_PITCH * (1 - frac2).
     }
     RETURN 0.
