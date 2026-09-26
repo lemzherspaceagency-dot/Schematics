@@ -250,12 +250,18 @@ FUNCTION DO_STAGE {
 // spool up to full AVAILABLETHRUST after ignition, so checking THRUST vs.
 // AVAILABLETHRUST immediately at ignition false-triggers on every launch.
 // Only start checking once thrust has had time to stabilize.
+// FIX (post-flight #3): comparing THRUST against full AVAILABLETHRUST spams
+// false positives whenever the script itself has throttled down (e.g. the
+// soft overshoot cap at 0.1 throttle) -- 10% actual thrust vs 100% available
+// looks identical to an engine failure. Compare against what the CURRENT
+// throttle command should be producing instead.
 FUNCTION CHECK_ENGINE_OUT {
     PARAMETER elist, graceSeconds, igniteTime.
     IF TIME:SECONDS - igniteTime < graceSeconds { RETURN TRUE. }
     LOCAL liveCount IS 0.
     FOR e IN elist {
-        IF e:IGNITION AND NOT e:FLAMEOUT AND e:THRUST > e:AVAILABLETHRUST * 0.5 {
+        LOCAL expected IS e:AVAILABLETHRUST * THROTTLE * 0.5.
+        IF e:IGNITION AND NOT e:FLAMEOUT AND e:THRUST > expected {
             SET liveCount TO liveCount + 1.
         }
     }
@@ -477,28 +483,21 @@ FUNCTION ASCENT {
     DO_STAGE().
 
     // Continue on SSMEs, following the same altitude-based pitch program.
-    // The OMS pods only carry ~300 m/s combined with RCS (confirmed from the
-    // stock craft's flight notes), shared with the deorbit burn later, so
-    // MECO should not happen the instant apoapsis first touches target --
-    // that leaves periapsis deep in the atmosphere and costs ~70 m/s of OMS
-    // just to fix (vis-viva check: cutting at Pe=0/Ap=80km needs ~72 m/s trim
-    // vs. ~10 m/s if Pe is already near target when MECO happens). So: keep
-    // burning near-horizontal until BOTH apoapsis and periapsis are near
-    // target, capped so we never overshoot apoapsis by more than 15%.
+    // FIX (post-flight #4): flights 2 and 3 both hit the hard apoapsis cap
+    // without ever reaching the old "periapsis >= 85% of target" condition.
+    // The reason is physics, not a tuning problem: vis-viva shows a Pe=68km/
+    // Ap=80km orbit needs 2268.8 m/s at apoapsis, which is 99.6% of full
+    // circular velocity (2278.9 m/s) -- that condition was asking the SSMEs
+    // to do essentially the ENTIRE circularization themselves, and this
+    // vehicle's rocket dv budget has no margin for that (94-98% of it is
+    // already needed just to reach apoapsis). Reverting to the simple,
+    // physically-grounded version: cut the instant apoapsis reaches target,
+    // whatever periapsis happens to be. Worst case (Pe=0) only costs ~72 m/s
+    // of OMS trim, which the ~300 m/s pool covers easily -- there was never
+    // a real problem here worth chasing.
     LOCAL ssmeIgniteTime IS TIME:SECONDS.
     LOCK STEERING TO HEADING(90, PITCH_PROGRAM()).
-    // FIX (post-flight #2): the old exit condition required BOTH apoapsis AND
-    // periapsis to reach target, with only a soft throttle-down (never a full
-    // cut) above 1.15x target as a guard. When periapsis lagged badly, the
-    // loop kept burning at reduced throttle waiting for it to catch up, and
-    // apoapsis (which a nonzero throttle still raises) ballooned to 304 km
-    // before the flight ended stuck in that orbit. A HARD_APO_CAP now forces
-    // an unconditional exit regardless of periapsis -- an eccentric orbit
-    // that still needs OMS work is a recoverable failure; a 300km+ orbit
-    // that ran the SSMEs dry chasing periapsis is not.
-    LOCAL HARD_APO_CAP IS TARGET_APO * 1.3.
-    UNTIL (SHIP:APOAPSIS >= TARGET_APO AND SHIP:PERIAPSIS >= TARGET_APO * 0.85)
-        OR SHIP:APOAPSIS > HARD_APO_CAP OR ALL_FLAMED_OUT(ssmes) {
+    UNTIL SHIP:APOAPSIS >= TARGET_APO OR ALL_FLAMED_OUT(ssmes) {
         // FAILSAFE: engine-out check with a 3s spool-up grace period. Checking
         // THRUST vs. AVAILABLETHRUST from the instant of ignition false-triggers
         // every launch because engines aren't at full thrust yet -- this is
@@ -506,19 +505,10 @@ FUNCTION ASCENT {
         IF NOT CHECK_ENGINE_OUT(ssmes, 3, ssmeIgniteTime) {
             LOG_MSG("WARNING: SSME engine-out detected. Continuing on remaining thrust.").
         }
-
-        IF SHIP:APOAPSIS > TARGET_APO * 1.15 {
-            LOCK THROTTLE TO 0.1. // soft trim, still lets periapsis catch up a little
-        } ELSE {
-            LOCK THROTTLE TO 1.0.
-        }
+        LOCK THROTTLE TO 1.0.
         WAIT 0.05.
     }
     LOCK THROTTLE TO 0.
-    IF SHIP:APOAPSIS > HARD_APO_CAP {
-        LOG_MSG("WARNING: hit hard apoapsis cap before periapsis caught up. Cutting MECO now;").
-        LOG_MSG("orbit will be eccentric and circularization will cost more OMS dv than planned.").
-    }
     WAIT 0.5.
     UNLOCK THROTTLE.
     LOG_MSG("SSME cutoff: Ap=" + ROUND(SHIP:APOAPSIS,0) + " Pe=" + ROUND(SHIP:PERIAPSIS,0) + " m.").
