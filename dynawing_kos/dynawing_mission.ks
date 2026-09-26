@@ -234,9 +234,9 @@ FUNCTION SAFE_ROW {
 FUNCTION HUD_INIT {
     CLEARSCREEN.
     PRINT PAD("======================= DYNAWING MISSION HUD =======================", 200) AT(0, SAFE_ROW(0)).
-    PRINT PAD("----------------------------------------------------------------------", 200) AT(0, SAFE_ROW(15)).
-    PRINT PAD("RECENT EVENTS:", 200) AT(0, SAFE_ROW(16)).
-    PRINT PAD("----------------------------------------------------------------------", 200) AT(0, SAFE_ROW(25)).
+    PRINT PAD("----------------------------------------------------------------------", 200) AT(0, SAFE_ROW(16)).
+    PRINT PAD("RECENT EVENTS:", 200) AT(0, SAFE_ROW(17)).
+    PRINT PAD("----------------------------------------------------------------------", 200) AT(0, SAFE_ROW(26)).
 }
 
 FUNCTION HUD_UPDATE {
@@ -252,14 +252,15 @@ FUNCTION HUD_UPDATE {
     PRINT PAD("Mass:      " + ROUND(SHIP:MASS,2) + " t   Q: " + ROUND(SHIP:Q,3), 40) AT(0, SAFE_ROW(10)).
     PRINT PAD("Attitude:  P " + ROUND(SHIP:FACING:PITCH,1) + "  Y " + ROUND(SHIP:FACING:YAW,1) + "  R " + ROUND(SHIP:FACING:ROLL,1), 55) AT(0, SAFE_ROW(11)).
     PRINT PAD("Gear:" + GEAR + " Brakes:" + BRAKES + " RCS:" + RCS + " SAS:" + SAS, 55) AT(0, SAFE_ROW(12)).
-    PRINT PAD("Dist to runway: " + ROUND(RUNWAY_POS:DISTANCE,0) + " m   Brg: " + ROUND(RUNWAY_POS:HEADING,0) + " deg", 55) AT(0, SAFE_ROW(13)).
-    PRINT PAD("Warnings: " + WARNING_COUNT + "   Blackbox rows: " + BLACKBOX_ROWS, 55) AT(0, SAFE_ROW(14)).
+    PRINT PAD("Lat: " + ROUND(SHIP:GEOPOSITION:LAT,4) + "  Lng: " + ROUND(SHIP:GEOPOSITION:LNG,4), 40) AT(0, SAFE_ROW(13)).
+    PRINT PAD("Dist to runway: " + ROUND(RUNWAY_POS:DISTANCE,0) + " m   Brg: " + ROUND(RUNWAY_POS:HEADING,0) + " deg", 55) AT(0, SAFE_ROW(14)).
+    PRINT PAD("Warnings: " + WARNING_COUNT + "   Blackbox rows: " + BLACKBOX_ROWS, 55) AT(0, SAFE_ROW(15)).
 
     LOCAL i IS 0.
     UNTIL i >= 8 {
         LOCAL msg IS "".
         IF i < RECENT_MSGS:LENGTH { SET msg TO RECENT_MSGS[i]. }
-        PRINT PAD(msg, 70) AT(0, SAFE_ROW(17+i)).
+        PRINT PAD(msg, 70) AT(0, SAFE_ROW(18+i)).
         SET i TO i + 1.
     }
 }
@@ -974,7 +975,7 @@ FUNCTION REENTRY_AND_GLIDE {
     LOG_MSG("Vehicle stopped. Miss distance from runway aim point: " + ROUND(missDist,0) + " m.").
     LOG_MSG("If short: decrease GLIDE_LEAD_DEG. If long/overshot: increase it.").
     HUD_UPDATE(). // final draw so the HUD shows the landed state, not a stale tick
-    PRINT PAD(">>> MISSION COMPLETE -- black box: " + BLACKBOX_ROWS + " rows at " + BLACKBOX_PATH, 70) AT(0, SAFE_ROW(26)).
+    PRINT PAD(">>> MISSION COMPLETE -- black box: " + BLACKBOX_ROWS + " rows at " + BLACKBOX_PATH, 70) AT(0, SAFE_ROW(27)).
 }
 
 // ============================================================================
