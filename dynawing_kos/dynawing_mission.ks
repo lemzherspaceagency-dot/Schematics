@@ -507,16 +507,31 @@ FUNCTION EXECUTE_NODE {
     }
 
     // FIX (post-flight #8): the OLD code locked steering to nd:BURNVECTOR
-    // HERE, before computing burnStart and before the long warp -- and never
-    // unlocked it until after the warp. An active steering LOCK demands
-    // continuous torque correction every physics tick, which is exactly the
-    // kind of thing that stops rails warp from actually engaging at high
-    // multiplier (same class of conflict as SAS fighting an active steering
-    // lock, fixed earlier). Confirmed from the black box: a node planned
-    // 1213s out fired only 24 GAME-seconds later -- not "fast in real time
-    // due to warp," an actual failure to advance game time, meaning the warp
-    // never really engaged. No steering lock is held during the long-distance
-    // coast now; it's only established once we're close to the burn.
+    // before computing burnStart and before the long warp -- and never
+    // unlocked it until after. An active steering LOCK demands continuous
+    // torque correction every physics tick, which stops rails warp from
+    // actually engaging at high multiplier (same conflict class as SAS
+    // fighting an active steering lock). No lock is held during the warp.
+    //
+    // FIX (post-flight #9): that alone wasn't enough. Flight 8 confirmed the
+    // warp wasn't even the issue this time (no "Warping ahead" ever logged --
+    // the burn point was already close) and apoapsis STILL rose instead of
+    // falling. Root cause: alignment was only attempted right as the burn
+    // window arrived, with a hard 20s cap. If the ship's leftover attitude
+    // from the previous burn was far from retrograde, rotating a ~43t vessel
+    // that far can genuinely take longer than 20s, and by the time it
+    // finished turning, the burn window (specific to the ground-track-aligned
+    // point MAKE_DEORBIT_NODE chose) had already passed -- so it fired late,
+    // against a real but now-stale orbital position. Fix: align FIRST, with
+    // no time pressure, BEFORE computing burnStart/warping at all. A vessel
+    // holds its attitude through an unperturbed vacuum coast even after
+    // UNLOCK, so aligning early and then unlocking for the warp costs nothing
+    // and guarantees the ship is already pointed correctly when the window
+    // arrives, instead of racing to turn while the clock runs out.
+    LOCK STEERING TO nd:BURNVECTOR.
+    LOCAL preAlignStart IS TIME:SECONDS.
+    WAIT UNTIL VANG(SHIP:FACING:FOREVECTOR, nd:BURNVECTOR) < 1.0 OR TIME:SECONDS - preAlignStart > 60.
+
     LOCAL dvMag IS nd:BURNVECTOR:MAG.
     LOCAL F IS TOTAL_AVAILABLE_THRUST().
     IF F < 1 { SET F TO 1. }
@@ -524,7 +539,7 @@ FUNCTION EXECUTE_NODE {
 
     LOCAL burnStart IS TIME:SECONDS + nd:ETA - (burnTime / 2) - 10.
     IF burnStart > TIME:SECONDS + 15 {
-        UNLOCK STEERING. // make sure nothing is holding a lock through the warp
+        UNLOCK STEERING. // already aligned; ship holds attitude through the coast/warp
         WARP_TO_UT(burnStart, 0).
     }
 
