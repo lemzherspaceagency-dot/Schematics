@@ -588,11 +588,44 @@ FUNCTION MAKE_DEORBIT_NODE {
     LOCAL period IS SHIP:ORBIT:PERIOD.
     LOCAL steps IS 60.
     LOCAL i IS 0.
+
+    // FIX (post-flight #15, still 849km off after the half-orbit fix):
+    // BODY:GEOPOSITIONOF(pos) converts an inertial-frame position vector to
+    // lat/lng using the body's rotation AT THE INSTANT IT'S CALLED (i.e. now)
+    // -- it has no idea the position vector it was handed actually describes
+    // where the ship will be at a FUTURE time. Kerbin keeps spinning under
+    // that future point the whole time between now and periapsisTime, so the
+    // longitude this returns is off by exactly however far the planet
+    // rotates in that gap. Confirmed against the data: burn ignited at
+    // lng=82.4 (t=1967.96), atmosphere entry (70km) occurred at lng=128.34
+    // only 264s later -- nowhere near matching the half-period assumption's
+    // implied ~937s gap for an ~1875s LKO period at 80km (T=2*pi*sqrt(r^3/mu)
+    // with r=680,000m, mu=3.5316e12 -> ~1875s), meaning the actual
+    // periapsis-area longitude the burn produced bore no fixed relationship
+    // to what GEOPOSITIONOF reported for that same future instant -- a
+    // rotation-frame bug, not a residual glide-ratio/timing error. Fix: undo
+    // the body's rotation over the gap before converting, by rotating the
+    // future position vector backward around the body's spin axis by the
+    // angle Kerbin will actually turn through in that time. This makes
+    // GEOPOSITIONOF's "current rotation" assumption correct for the future
+    // instant instead of stale for it.
+    LOCAL spinAxis IS BODY:ANGULARVEL:NORMALIZED.
+    LOCAL degPerSec IS 360 / BODY:ROTATIONPERIOD.
+
     UNTIL i > steps {
         LOCAL tTry IS TIME:SECONDS + (period * i / steps).
         LOCAL periapsisTime IS tTry + (period / 2).
+        LOCAL dt IS periapsisTime - TIME:SECONDS.
         LOCAL futurePos IS POSITIONAT(SHIP, periapsisTime).
-        LOCAL futureGeo IS BODY:GEOPOSITIONOF(futurePos).
+        // Rotate the future position vector backward (opposite the body's
+        // spin) by the angle the body will turn through over dt, relative to
+        // the body's current center, so GEOPOSITIONOF's current-rotation
+        // assumption lines up with the future instant it actually describes.
+        LOCAL rotBackAngle IS -1 * degPerSec * dt.
+        LOCAL relPos IS futurePos - BODY:POSITION.
+        LOCAL rotBackQ IS ANGLEAXIS(rotBackAngle, spinAxis).
+        LOCAL correctedPos IS (rotBackQ * relPos) + BODY:POSITION.
+        LOCAL futureGeo IS BODY:GEOPOSITIONOF(correctedPos).
         LOCAL aimLng IS RUNWAY_POS:LNG - GLIDE_LEAD_DEG.
         LOCAL diff IS ABS(MOD(futureGeo:LNG - aimLng + 540, 360) - 180).
         IF diff < bestDiff {
@@ -966,7 +999,15 @@ FUNCTION REENTRY_AND_GLIDE {
     // GLIDE_LEAD_DEG was off and we're going to undershoot or overshoot, the
     // pitch command actually corrects for it instead of blindly holding -8
     // degrees regardless of where the runway actually is.
-    UNTIL (SHIP:ALTITUDE < FLARE_ALT AND RUNWAY_POS:DISTANCE < 3000)
+    // FIX (post-flight #16, gear never deployed): SHIP:ALTITUDE is sea-level
+    // (ASL), but ground proximity has to be measured against the terrain
+    // actually under the ship, which is what ALT:RADAR gives. Confirmed from
+    // the black box: the vehicle bellied in at ASL altitude ~827m with
+    // radar_alt down to 2.8m -- the crash site terrain itself sits at ~825m
+    // elevation, so GEAR_DEPLOY_ALT=600 (compared against ASL) could never
+    // trigger even though the ship was genuinely seconds from touchdown.
+    // Every ground-proximity check below now uses ALT:RADAR instead.
+    UNTIL (ALT:RADAR < FLARE_ALT AND RUNWAY_POS:DISTANCE < 3000)
         OR SHIP:STATUS = "LANDED" OR SHIP:STATUS = "SPLASHED" {
         LOCAL courseToRunway IS RUNWAY_POS:HEADING. // absolute compass course, ship-independent
         LOCAL distToGo IS MAX(RUNWAY_POS:DISTANCE, 1).
@@ -1000,7 +1041,7 @@ FUNCTION REENTRY_AND_GLIDE {
 
         LOCK STEERING TO HEADING(courseToRunway, 90 + pitchTarget).
 
-        IF SHIP:ALTITUDE < GEAR_DEPLOY_ALT AND NOT GEAR {
+        IF ALT:RADAR < GEAR_DEPLOY_ALT AND NOT GEAR {
             LOG_MSG("Deploying landing gear.").
             GEAR ON.
         }
@@ -1034,7 +1075,7 @@ FUNCTION REENTRY_AND_GLIDE {
     UNTIL SHIP:STATUS = "LANDED" OR SHIP:STATUS = "SPLASHED" {
         LOCAL courseToRunway IS RUNWAY_POS:HEADING.
         LOCAL flarePitch IS -2.
-        IF SHIP:ALTITUDE < 20 { SET flarePitch TO 3. }
+        IF ALT:RADAR < 20 { SET flarePitch TO 3. }
         // Same stall guard as the main glide loop: don't flare (pitch up)
         // into a stall this close to the ground -- that's the worst
         // possible place for it. Prioritize airspeed over flare shape.
