@@ -125,15 +125,26 @@ FUNCTION PAD {
 // CSV. If the mission succeeds OR fails (crash, loss of control, whatever),
 // this file survives and can be handed back for post-flight analysis: every
 // column needed to reconstruct what the vehicle was doing at any instant.
+// Every column here is chosen to mirror the HUD exactly -- one blackbox row
+// is the full HUD snapshot for that tick, not a subset of it, so reading the
+// CSV post-flight tells you everything the HUD was showing at any instant.
 FUNCTION BLACKBOX_INIT {
     IF EXISTS(BLACKBOX_PATH) { DELETEPATH(BLACKBOX_PATH). }
     LOG "t_UT,mission_time,phase,altitude,radar_alt,vspeed,airspeed,groundspeed,orbital_speed," +
         "apoapsis,periapsis,mass_t,throttle,stage,pitch,heading,roll,dynamic_pressure," +
-        "lat,lng,gear,brakes,rcs,sas,warning_count,last_warning"
+        "lat,lng,gear,brakes,rcs,sas,dist_to_runway,bearing_to_runway,warning_count,last_warning," +
+        "blackbox_rows,last_event"
         TO BLACKBOX_PATH.
 }
 
 FUNCTION BLACKBOX_LOG {
+    LOCAL lastEvent IS "".
+    IF RECENT_MSGS:LENGTH > 0 { SET lastEvent TO RECENT_MSGS[RECENT_MSGS:LENGTH - 1]. }
+    // Strip commas from free-text fields so they can't be mistaken for extra
+    // CSV columns by a downstream parser.
+    SET lastEvent TO lastEvent:REPLACE(",", ";").
+    LOCAL lastWarn IS LAST_WARNING:REPLACE(",", ";").
+
     LOCAL row IS TIME:SECONDS + "," + ROUND(MISSIONTIME,3) + "," + MISSION_PHASE + "," +
         ROUND(SHIP:ALTITUDE,1) + "," + ROUND(ALT:RADAR,1) + "," + ROUND(SHIP:VERTICALSPEED,2) + "," +
         ROUND(SHIP:AIRSPEED,2) + "," + ROUND(SHIP:GROUNDSPEED,2) + "," + ROUND(SHIP:VELOCITY:ORBIT:MAG,2) + "," +
@@ -141,7 +152,9 @@ FUNCTION BLACKBOX_LOG {
         ROUND(THROTTLE,3) + "," + STAGE:NUMBER + "," +
         ROUND(SHIP:FACING:PITCH,2) + "," + ROUND(SHIP:FACING:YAW,2) + "," + ROUND(SHIP:FACING:ROLL,2) + "," +
         ROUND(SHIP:Q,4) + "," + ROUND(SHIP:GEOPOSITION:LAT,5) + "," + ROUND(SHIP:GEOPOSITION:LNG,5) + "," +
-        GEAR + "," + BRAKES + "," + RCS + "," + SAS + "," + WARNING_COUNT + "," + LAST_WARNING.
+        GEAR + "," + BRAKES + "," + RCS + "," + SAS + "," +
+        ROUND(RUNWAY_POS:DISTANCE,0) + "," + ROUND(RUNWAY_POS:HEADING,0) + "," +
+        WARNING_COUNT + "," + lastWarn + "," + BLACKBOX_ROWS + "," + lastEvent.
     LOG row TO BLACKBOX_PATH.
     SET BLACKBOX_ROWS TO BLACKBOX_ROWS + 1.
 }
