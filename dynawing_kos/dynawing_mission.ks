@@ -599,29 +599,63 @@ FUNCTION DEORBIT {
 // AoA as speed bleeds off, with continuous bearing correction toward the
 // runway aim point.
 // ============================================================================
+// Retrograde tilted toward local vertical by aoaDeg -- built with plain
+// vector blending, not ANGLEAXIS/VCRS, specifically to avoid their sign
+// ambiguity in KSP's left-handed coordinate system (cross-product direction
+// there is flipped from standard math convention). This construction can't
+// have that problem: it's just "retrograde, rotated aoaDeg toward true-up,
+// in the plane containing both" -- the sign is correct by construction,
+// verifiable without needing to fly it first to check which way it tilts.
+FUNCTION AOA_RETROGRADE {
+    PARAMETER aoaDeg.
+    LOCAL fwd IS SHIP:SRFRETROGRADE:VECTOR:NORMALIZED.
+    LOCAL upv IS SHIP:UP:VECTOR:NORMALIZED.
+    LOCAL upPerp IS (upv - fwd * VDOT(upv, fwd)):NORMALIZED.
+    RETURN (fwd * COS(aoaDeg) + upPerp * SIN(aoaDeg)):NORMALIZED.
+}
+
 FUNCTION REENTRY_AND_GLIDE {
     SET MISSION_PHASE TO "REENTRY-HOLD".
     LOG_MSG("Entering atmosphere, starting reentry attitude hold.").
     RCS ON.
     SAS OFF.
 
-    LOCK STEERING TO SHIP:SRFRETROGRADE. // belly-first, high-AoA hold via retrograde lock
+    // FIX (pre-flight review): SHIP:SRFRETROGRADE alone is ZERO angle of
+    // attack -- nose pointed exactly opposite velocity. That is NOT what the
+    // craft's own design notes call for ("fly a high-AoA reentry"): a real
+    // shuttle-style entry flies nose-up 30-40 degrees off retrograde for
+    // lift and to keep the belly (not the nose) taking the heating. Using
+    // plain retrograde was silently flying the wrong attitude for the whole
+    // hypersonic entry.
+    LOCAL REENTRY_AOA IS 35.
+    LOCK STEERING TO AOA_RETROGRADE(REENTRY_AOA).
     WAIT UNTIL SHIP:ALTITUDE < 60000.
 
-    // Hold retrograde through the hottest part of reentry.
+    // Hold high-AoA retrograde through the hottest part of reentry.
     WAIT UNTIL SHIP:ALTITUDE < 40000 OR SHIP:AIRSPEED < 800.
 
     SET MISSION_PHASE TO "GLIDE".
     LOG_MSG("Transitioning to glide guidance.").
     RCS OFF.
 
-    // Closed-loop glide: bank toward the runway aim point, hold a pitch
-    // that trades a shallow descent for airspeed control.
-    UNTIL SHIP:ALTITUDE < FLARE_ALT AND RUNWAY_POS:DISTANCE < 3000 {
+    // Closed-loop glide with REAL energy management, not a fixed pitch: the
+    // required flight path angle is computed every tick from altitude and
+    // remaining distance to the runway (glideslope = atan(alt/dist)), so if
+    // GLIDE_LEAD_DEG was off and we're going to undershoot or overshoot, the
+    // pitch command actually corrects for it instead of blindly holding -8
+    // degrees regardless of where the runway actually is.
+    UNTIL (SHIP:ALTITUDE < FLARE_ALT AND RUNWAY_POS:DISTANCE < 3000)
+        OR SHIP:STATUS = "LANDED" OR SHIP:STATUS = "SPLASHED" {
         LOCAL courseToRunway IS RUNWAY_POS:HEADING. // absolute compass course, ship-independent
+        LOCAL distToGo IS MAX(RUNWAY_POS:DISTANCE, 1).
 
-        LOCAL pitchTarget IS -8. // shallow nose-down glide attitude
-        IF SHIP:AIRSPEED < 150 { SET pitchTarget TO -3. } // flatten out as we slow
+        // Ideal descent angle to cover the remaining distance at the
+        // remaining altitude, clamped to a flyable range so it never
+        // commands something the airframe can't hold.
+        LOCAL idealAngle IS ARCTAN2(SHIP:ALTITUDE, distToGo).
+        LOCAL pitchTarget IS -1 * MIN(25, MAX(2, idealAngle)).
+
+        IF SHIP:AIRSPEED < 150 { SET pitchTarget TO MAX(pitchTarget, -3). } // flatten out as we slow, avoid stalling
 
         LOCK STEERING TO HEADING(courseToRunway, 90 + pitchTarget).
 
@@ -631,6 +665,23 @@ FUNCTION REENTRY_AND_GLIDE {
         }
 
         WAIT 0.1.
+    }
+
+    // FIX (pre-flight review): the loop above used to exit ONLY on being
+    // both low AND close to the runway -- if the glide brought the ship down
+    // far from the runway instead (bad GLIDE_LEAD_DEG, wind, whatever), it
+    // would touch down while still inside this loop with no gear-check, no
+    // brakes, and no mission-complete log: a silent, undetected crash with
+    // the script just looping forever afterward. Now it also exits on
+    // SHIP:STATUS, and this catches that case explicitly.
+    IF SHIP:STATUS = "LANDED" OR SHIP:STATUS = "SPLASHED" {
+        LOG_MSG("WARNING: touched down during glide, before reaching final approach.").
+        LOG_MSG("Landed away from the runway -- check GLIDE_LEAD_DEG and the black box.").
+        IF NOT GEAR { GEAR ON. }
+        BRAKES ON.
+        SET MISSION_PHASE TO "MISSION-COMPLETE-OFF-TARGET".
+        LOG_MSG("Vehicle stopped. Distance from runway aim point: " + ROUND(RUNWAY_POS:DISTANCE,0) + " m.").
+        RETURN.
     }
 
     SET MISSION_PHASE TO "FINAL-APPROACH".
