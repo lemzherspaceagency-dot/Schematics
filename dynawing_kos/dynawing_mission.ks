@@ -589,7 +589,13 @@ FUNCTION ASCENT {
     DO_STAGE(). // jettison external tank
     DO_STAGE(). // activate OMS stage if separate
     UNLOCK STEERING.
-    SAS ON.
+    // FIX (in-flight report): this used to be "SAS ON" here, but the very
+    // next thing MAIN SEQUENCE does is LOCK STEERING TO SHIP:PROGRADE for
+    // the coast -- SAS and an active steering LOCK both try to command
+    // attitude at the same time, which is exactly the "fighting" kOS was
+    // warning about. SAS was never actually needed here since a steering
+    // lock takes over immediately; just leave it off.
+    SAS OFF.
     LOG_MSG("Ascent complete, coasting to apoapsis for circularization.").
     SET MISSION_PHASE TO "COAST-TO-APOAPSIS".
 }
