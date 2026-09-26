@@ -373,7 +373,8 @@ FUNCTION WARP_TO_UT {
     }
     LOCAL t IS targetUT - leadSeconds.
     IF t > TIME:SECONDS + 5 {
-        LOG_MSG("Warping " + ROUND(t - TIME:SECONDS,0) + "s ahead (capped, stepped-down warp).").
+        LOCAL intendedGap IS t - TIME:SECONDS.
+        LOG_MSG("Warping " + ROUND(intendedGap,0) + "s ahead (capped, stepped-down warp).").
         UNTIL TIME:SECONDS >= t - 10 {
             LOCAL remain IS t - TIME:SECONDS.
             IF remain > 600 { SET KUNIVERSE:TIMEWARP:WARP TO 4. }      // ~100x
@@ -384,6 +385,12 @@ FUNCTION WARP_TO_UT {
         }
         SET KUNIVERSE:TIMEWARP:WARP TO 0.
         WAIT UNTIL TIME:SECONDS >= t - 1.
+        // Diagnostic (post-flight #8): confirm in the black box whether this
+        // actually advanced game time by roughly the intended amount, so a
+        // future "fired way too early" report can be told apart from "warp
+        // silently didn't engage" at a glance instead of re-deriving it from
+        // mass/apoapsis deltas again.
+        LOG_MSG("Warp done: intended gap " + ROUND(intendedGap,0) + "s, actual UT now " + ROUND(TIME:SECONDS,0) + ".").
     }
     SET KUNIVERSE:TIMEWARP:WARP TO 0.
 }
@@ -472,32 +479,31 @@ FUNCTION EXECUTE_NODE {
         RETURN.
     }
 
-    LOCK STEERING TO nd:BURNVECTOR.
-    LOCAL alignStart IS TIME:SECONDS.
-    WAIT UNTIL VANG(SHIP:FACING:FOREVECTOR, nd:BURNVECTOR) < 1.0 OR TIME:SECONDS - alignStart > 20.
-
+    // FIX (post-flight #8): the OLD code locked steering to nd:BURNVECTOR
+    // HERE, before computing burnStart and before the long warp -- and never
+    // unlocked it until after the warp. An active steering LOCK demands
+    // continuous torque correction every physics tick, which is exactly the
+    // kind of thing that stops rails warp from actually engaging at high
+    // multiplier (same class of conflict as SAS fighting an active steering
+    // lock, fixed earlier). Confirmed from the black box: a node planned
+    // 1213s out fired only 24 GAME-seconds later -- not "fast in real time
+    // due to warp," an actual failure to advance game time, meaning the warp
+    // never really engaged. No steering lock is held during the long-distance
+    // coast now; it's only established once we're close to the burn.
     LOCAL dvMag IS nd:BURNVECTOR:MAG.
     LOCAL F IS TOTAL_AVAILABLE_THRUST().
     IF F < 1 { SET F TO 1. }
     LOCAL burnTime IS (SHIP:MASS * 1000 * dvMag) / F.
 
-    // FIX (post-flight #7): this used to call the raw, unguarded
-    // KUNIVERSE:TIMEWARP:WARPTO() -- the exact same overshoot-prone call we
-    // already replaced everywhere else with the capped/stepped-down
-    // WARP_TO_UT(). Confirmed from the black box: the deorbit burn fired at
-    // the right computed dv (-42.4 m/s, correctly retrograde) but APOAPSIS
-    // WENT UP instead of down -- the burn's timing had drifted past the
-    // node's planned geometry (a Node's dv components are fixed relative to
-    // the orbital frame AT ITS SCHEDULED TIME; firing meaningfully late
-    // breaks that basis even though the node still reports a "valid"
-    // burn vector). Using the hardened warp reduces how far off-time we can
-    // land in the first place.
     LOCAL burnStart IS TIME:SECONDS + nd:ETA - (burnTime / 2) - 10.
     IF burnStart > TIME:SECONDS + 15 {
+        UNLOCK STEERING. // make sure nothing is holding a lock through the warp
         WARP_TO_UT(burnStart, 0).
     }
 
     LOCK STEERING TO nd:BURNVECTOR.
+    LOCAL alignStart IS TIME:SECONDS.
+    WAIT UNTIL VANG(SHIP:FACING:FOREVECTOR, nd:BURNVECTOR) < 1.0 OR TIME:SECONDS - alignStart > 20.
     LOCAL etaWaitStart IS TIME:SECONDS.
     WAIT UNTIL nd:ETA <= (burnTime / 2) + 1 OR TIME:SECONDS - etaWaitStart > 60.
     WAIT UNTIL VANG(SHIP:FACING:FOREVECTOR, nd:BURNVECTOR) < 2.0.
@@ -510,8 +516,11 @@ FUNCTION EXECUTE_NODE {
     // propellant AND moves the orbit the wrong way.
     IF ABS(nd:ETA) > (burnTime / 2) + 30 {
         LOG_MSG("CRITICAL: burn timing drifted too far off-plan (ETA=" + ROUND(nd:ETA,1) + "s), aborting burn.").
-        LOG_MSG("Node left in place -- rerun EXECUTE_NODE or replan rather than fire against stale geometry.").
         UNLOCK STEERING.
+        REMOVE nd. // FIX (post-flight #8): this used to leave the node in the flight
+                   // plan on abort -- a stale node sitting there confuses the navball
+                   // (shows a maneuver marker for a burn that will never fire this way)
+                   // and would collide with a freshly-planned retry node.
         RETURN.
     }
 
