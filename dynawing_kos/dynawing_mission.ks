@@ -73,6 +73,8 @@ GLOBAL RUNWAY_POS IS LATLNG(-0.040556, -74.691111). // KSC runway, converted fro
 GLOBAL GLIDE_LEAD_DEG IS 18.                   // TUNE THIS after each attempt
 GLOBAL G0 IS 9.80665.
 GLOBAL TURN_START_ALT IS 1000.                 // gravity turn pitch program bounds
+GLOBAL TURN_MID_ALT IS 22000.                  // steep-climb segment ends / gravity-turn segment starts
+GLOBAL TURN_MID_PITCH IS 65.                   // pitch (deg above horizon) held at TURN_MID_ALT
 GLOBAL TURN_END_ALT IS 45000.                  // "horizontal by 45km" per the craft's own design notes
 GLOBAL GEAR_DEPLOY_ALT IS 600.                 // radar altitude to drop gear, m
 GLOBAL FLARE_ALT IS 60.                        // radar altitude to begin flare, m
@@ -258,10 +260,35 @@ FUNCTION TOTAL_AVAILABLE_THRUST {
 // below horizontal by construction, and TURN_END_ALT=45km matches the
 // craft's own documented profile ("horizontal by 45 km"). LOCK STEERING TO
 // HEADING(90, PITCH_PROGRAM()) re-evaluates this every tick automatically.
+//
+// FIX (heating): this used to be a single linear ramp from 90 deg at
+// TURN_START_ALT straight to 0 deg at TURN_END_ALT, which leans the vehicle
+// over fast while still deep in the thick lower atmosphere (e.g. already at
+// 51 deg by 20km) -- exactly where aerodynamic heating is worst, since heat
+// flux scales with both air density AND velocity, and leaning over early
+// trades altitude for horizontal speed right where the air is densest. This
+// is why the ignore-max-temp cheat was needed. Real ascent profiles (Saturn
+// V, Shuttle) fly steep through the thick air first and save the aggressive
+// gravity-turn lean-over for thinner air higher up. Now a two-segment
+// program: mostly vertical up to TURN_MID_ALT (holds TURN_MID_PITCH there,
+// e.g. 65 deg vs. the old program's 51 deg at the same altitude -- notably
+// less horizontal speed built up in the dense air), then the rest of the
+// lean-over happens between TURN_MID_ALT and TURN_END_ALT where the air is
+// thin enough that the same speed generates much less heating. Trade-off:
+// a steeper climb costs a little more gravity-loss dv than the old shallow
+// ramp -- watch the ascent margin (already logged) if this needs retuning.
 FUNCTION PITCH_PROGRAM {
-    LOCAL frac IS (SHIP:ALTITUDE - TURN_START_ALT) / (TURN_END_ALT - TURN_START_ALT).
-    SET frac TO MIN(1, MAX(0, frac)).
-    RETURN 90 * (1 - frac).
+    LOCAL alt IS SHIP:ALTITUDE.
+    IF alt < TURN_START_ALT { RETURN 90. }
+    IF alt < TURN_MID_ALT {
+        LOCAL frac IS (alt - TURN_START_ALT) / (TURN_MID_ALT - TURN_START_ALT).
+        RETURN 90 - (90 - TURN_MID_PITCH) * frac.
+    }
+    IF alt < TURN_END_ALT {
+        LOCAL frac2 IS (alt - TURN_MID_ALT) / (TURN_END_ALT - TURN_MID_ALT).
+        RETURN TURN_MID_PITCH * (1 - frac2).
+    }
+    RETURN 0.
 }
 
 // FAILSAFE: bounded wait for STAGE:READY instead of an unconditional WAIT
