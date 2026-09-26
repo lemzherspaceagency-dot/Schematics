@@ -604,12 +604,21 @@ FUNCTION MAKE_DEORBIT_NODE {
     // periapsis-area longitude the burn produced bore no fixed relationship
     // to what GEOPOSITIONOF reported for that same future instant -- a
     // rotation-frame bug, not a residual glide-ratio/timing error. Fix: undo
-    // the body's rotation over the gap before converting, by rotating the
-    // future position vector backward around the body's spin axis by the
-    // angle Kerbin will actually turn through in that time. This makes
-    // GEOPOSITIONOF's "current rotation" assumption correct for the future
-    // instant instead of stale for it.
-    LOCAL spinAxis IS BODY:ANGULARVEL:NORMALIZED.
+    // the body's rotation over the gap by subtracting the angle Kerbin will
+    // turn through in that time directly from the reported longitude.
+    // DELIBERATELY NOT using ANGLEAXIS/vector rotation here: this file's own
+    // AOA_RETROGRADE comment already documents that ANGLEAXIS/VCRS have a
+    // sign ambiguity in KSP's left-handed coordinate system, unverifiable
+    // without an actual flight. A plain scalar subtraction on the longitude
+    // has no handedness to get backwards -- Kerbin's rotation period and
+    // direction (prograde, i.e. longitude increases eastward with time) are
+    // unambiguous, so this sign is not in question the way a vector-rotation
+    // sign would be.
+    // CALIBRATION NOTE: if the next flight's miss distance gets WORSE (or
+    // flips to the opposite side of the runway) instead of better, that
+    // means this correction is being applied backwards -- flip the sign
+    // (change "-" to "+" below) rather than removing it, since the
+    // underlying rotation-frame effect itself is confirmed real.
     LOCAL degPerSec IS 360 / BODY:ROTATIONPERIOD.
 
     UNTIL i > steps {
@@ -617,17 +626,10 @@ FUNCTION MAKE_DEORBIT_NODE {
         LOCAL periapsisTime IS tTry + (period / 2).
         LOCAL dt IS periapsisTime - TIME:SECONDS.
         LOCAL futurePos IS POSITIONAT(SHIP, periapsisTime).
-        // Rotate the future position vector backward (opposite the body's
-        // spin) by the angle the body will turn through over dt, relative to
-        // the body's current center, so GEOPOSITIONOF's current-rotation
-        // assumption lines up with the future instant it actually describes.
-        LOCAL rotBackAngle IS -1 * degPerSec * dt.
-        LOCAL relPos IS futurePos - BODY:POSITION.
-        LOCAL rotBackQ IS ANGLEAXIS(rotBackAngle, spinAxis).
-        LOCAL correctedPos IS (rotBackQ * relPos) + BODY:POSITION.
-        LOCAL futureGeo IS BODY:GEOPOSITIONOF(correctedPos).
+        LOCAL futureGeo IS BODY:GEOPOSITIONOF(futurePos).
+        LOCAL correctedLng IS MOD(futureGeo:LNG - (degPerSec * dt) + 3600, 360).
         LOCAL aimLng IS RUNWAY_POS:LNG - GLIDE_LEAD_DEG.
-        LOCAL diff IS ABS(MOD(futureGeo:LNG - aimLng + 540, 360) - 180).
+        LOCAL diff IS ABS(MOD(correctedLng - aimLng + 540, 360) - 180).
         IF diff < bestDiff {
             SET bestDiff TO diff.
             SET bestEta TO tTry - TIME:SECONDS.
