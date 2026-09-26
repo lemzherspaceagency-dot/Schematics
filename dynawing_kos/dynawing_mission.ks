@@ -136,6 +136,7 @@ FUNCTION BLACKBOX_INIT {
         "apoapsis,periapsis,mass_t,throttle,stage,pitch,heading,roll,dynamic_pressure," +
         "lat,lng,gear,brakes,rcs,sas,dist_to_runway,bearing_to_runway,warning_count,last_warning," +
         "blackbox_rows,oms_monoprop_units,oms_engines_ignited,oms_engines_flamedout,oms_available_thrust," +
+        "warp_level,hasnode,node_eta,node_burnvec_mag,node_align_err,steering_locked," +
         "last_event"
         TO BLACKBOX_PATH.
 }
@@ -165,6 +166,23 @@ FUNCTION BLACKBOX_LOG {
     LOCAL lastWarn IS LAST_WARNING:REPLACE(",", ";").
     LOCAL omsStats IS OMS_ENGINE_STATS().
 
+    // FIX (blind-spot report, take 2): a single event-triggered log line
+    // isn't enough -- it only catches what I thought to instrument. HASNODE
+    // and NEXTNODE are global, phase-independent kOS built-ins: querying
+    // them here means the black box captures the TRUE node/warp/steering
+    // state on every single tick, regardless of which function is running
+    // or what I remembered to log explicitly. This should make "why did it
+    // fire early" answerable directly from the data instead of requiring
+    // another round of inference or another targeted log line.
+    LOCAL nodeEta IS -1.
+    LOCAL nodeBurnMag IS -1.
+    LOCAL nodeAlignErr IS -1.
+    IF HASNODE {
+        SET nodeEta TO ROUND(NEXTNODE:ETA,1).
+        SET nodeBurnMag TO ROUND(NEXTNODE:BURNVECTOR:MAG,2).
+        SET nodeAlignErr TO ROUND(VANG(SHIP:FACING:FOREVECTOR, NEXTNODE:BURNVECTOR),2).
+    }
+
     LOCAL row IS TIME:SECONDS + "," + ROUND(MISSIONTIME,3) + "," + MISSION_PHASE + "," +
         ROUND(SHIP:ALTITUDE,1) + "," + ROUND(ALT:RADAR,1) + "," + ROUND(SHIP:VERTICALSPEED,2) + "," +
         ROUND(SHIP:AIRSPEED,2) + "," + ROUND(SHIP:GROUNDSPEED,2) + "," + ROUND(SHIP:VELOCITY:ORBIT:MAG,2) + "," +
@@ -176,7 +194,9 @@ FUNCTION BLACKBOX_LOG {
         ROUND(RUNWAY_POS:DISTANCE,0) + "," + ROUND(RUNWAY_POS:HEADING,0) + "," +
         WARNING_COUNT + "," + lastWarn + "," + BLACKBOX_ROWS + "," +
         ROUND(OMS_MONOPROP_AVAILABLE(),1) + "," + omsStats[0] + "," + omsStats[1] + "," +
-        ROUND(omsStats[2],1) + "," + lastEvent.
+        ROUND(omsStats[2],1) + "," +
+        KUNIVERSE:TIMEWARP:WARP + "," + HASNODE + "," + nodeEta + "," + nodeBurnMag + "," +
+        nodeAlignErr + "," + STEERINGMANAGER:ENABLED + "," + lastEvent.
     LOG row TO BLACKBOX_PATH.
     SET BLACKBOX_ROWS TO BLACKBOX_ROWS + 1.
 }
