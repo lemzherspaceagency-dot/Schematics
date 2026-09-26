@@ -1041,7 +1041,22 @@ FUNCTION REENTRY_AND_GLIDE {
             SET pitchTarget TO MAX(pitchTarget, -3). // flatten out as we slow, avoid stalling
         }
 
-        LOCK STEERING TO HEADING(courseToRunway, 90 + pitchTarget).
+        // FIX (post-flight #17, the real glide/flare bug): HEADING()'s pitch
+        // parameter is degrees above the horizon directly (0=level, 90=
+        // straight up, negative=nose down) -- exactly how ASCENT() uses it
+        // (HEADING(90, PITCH_PROGRAM()), PITCH_PROGRAM returning 0-90
+        // untouched). pitchTarget here is a small NEGATIVE number meaning
+        // "descend at this many degrees below horizon" (e.g. -15). The old
+        // "90 + pitchTarget" turned that into ~75 degrees ABOVE horizon --
+        // commanding a near-vertical, nose-up attitude while trying to glide
+        // DOWN. That contradiction between two attitude-control loops using
+        // the same kOS builtin two different (and mutually exclusive) ways
+        // is a far better explanation for the "wild pitch oscillation" /
+        // stall-mush crashes seen across multiple flights than anything
+        // upstream of this: no achievable descent could ever look sane while
+        // commanding an 80-degree nose-up pitch attitude. Removed the bogus
+        // offset entirely so this matches ASCENT()'s already-correct usage.
+        LOCK STEERING TO HEADING(courseToRunway, pitchTarget).
 
         IF ALT:RADAR < GEAR_DEPLOY_ALT AND NOT GEAR {
             LOG_MSG("Deploying landing gear.").
@@ -1082,7 +1097,9 @@ FUNCTION REENTRY_AND_GLIDE {
         // into a stall this close to the ground -- that's the worst
         // possible place for it. Prioritize airspeed over flare shape.
         IF SHIP:AIRSPEED < STALL_SPEED_MIN { SET flarePitch TO -5. }
-        LOCK STEERING TO HEADING(courseToRunway, 90 + flarePitch).
+        // FIX (post-flight #17): same bogus "90 +" offset bug as the main
+        // glide loop above -- removed here too, for the same reason.
+        LOCK STEERING TO HEADING(courseToRunway, flarePitch).
         WAIT 0.05.
     }
 
