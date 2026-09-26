@@ -146,6 +146,7 @@ FUNCTION BLACKBOX_INIT {
         "lat,lng,gear,brakes,rcs,sas,dist_to_runway,bearing_to_runway,warning_count,last_warning," +
         "blackbox_rows,oms_monoprop_units,oms_engines_ignited,oms_engines_flamedout,oms_available_thrust," +
         "warp_level,hasnode,node_eta,node_burnvec_mag,node_align_err,steering_locked," +
+        "aoa_srfprograde,aoa_orbitprograde," +
         "last_event"
         TO BLACKBOX_PATH.
 }
@@ -192,6 +193,16 @@ FUNCTION BLACKBOX_LOG {
         SET nodeAlignErr TO ROUND(VANG(SHIP:FACING:FOREVECTOR, NEXTNODE:BURNVECTOR),2).
     }
 
+    // The Euler pitch/heading/roll below (SHIP:FACING) are known to glitch
+    // near-vertical attitudes (gimbal-lock-style artifacts, seen in flight
+    // 1's blackbox). What actually matters for diagnosing attitude -- and
+    // what the navball itself shows -- is how far the nose is from the
+    // prograde/retrograde marker, in both surface and orbital modes (the
+    // navball can be toggled between them, and they diverge whenever there's
+    // any wind/rotation, which is exactly when this distinction matters).
+    LOCAL aoaSrf IS ROUND(VANG(SHIP:FACING:FOREVECTOR, SHIP:SRFPROGRADE:FOREVECTOR),2).
+    LOCAL aoaOrb IS ROUND(VANG(SHIP:FACING:FOREVECTOR, SHIP:PROGRADE:FOREVECTOR),2).
+
     LOCAL row IS TIME:SECONDS + "," + ROUND(MISSIONTIME,3) + "," + MISSION_PHASE + "," +
         ROUND(SHIP:ALTITUDE,1) + "," + ROUND(ALT:RADAR,1) + "," + ROUND(SHIP:VERTICALSPEED,2) + "," +
         ROUND(SHIP:AIRSPEED,2) + "," + ROUND(SHIP:GROUNDSPEED,2) + "," + ROUND(SHIP:VELOCITY:ORBIT:MAG,2) + "," +
@@ -205,7 +216,8 @@ FUNCTION BLACKBOX_LOG {
         ROUND(OMS_MONOPROP_AVAILABLE(),1) + "," + omsStats[0] + "," + omsStats[1] + "," +
         ROUND(omsStats[2],1) + "," +
         KUNIVERSE:TIMEWARP:WARP + "," + HASNODE + "," + nodeEta + "," + nodeBurnMag + "," +
-        nodeAlignErr + "," + STEERINGMANAGER:ENABLED + "," + lastEvent.
+        nodeAlignErr + "," + STEERINGMANAGER:ENABLED + "," +
+        aoaSrf + "," + aoaOrb + "," + lastEvent.
     LOG row TO BLACKBOX_PATH.
     SET BLACKBOX_ROWS TO BLACKBOX_ROWS + 1.
 }
