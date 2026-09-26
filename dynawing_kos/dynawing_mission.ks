@@ -455,8 +455,24 @@ FUNCTION V_VIS_VIVA {
     RETURN SQRT(BODY:MU * (2/radius - 1/sma)).
 }
 
+// FIX (post-flight #10 investigation): the navball reportedly showed the
+// node's countdown still far out, yet the script fired almost immediately
+// in GAME time (0.08s between finishing alignment and throttle going live)
+// -- which is only possible if the code's local `nd:ETA` and what the game
+// itself considers the "next" node (NEXTNODE, what the navball displays)
+// were NOT the same node. This script only ever intends one node in the
+// flight plan at a time; this guarantees that's actually true before every
+// node creation, regardless of whether a previous node was ever left behind
+// by some path this code didn't anticipate.
+FUNCTION CLEAR_ALL_NODES {
+    UNTIL NOT HASNODE {
+        REMOVE NEXTNODE.
+    }
+}
+
 // Build a circularization node at apoapsis.
 FUNCTION MAKE_CIRC_NODE {
+    CLEAR_ALL_NODES().
     LOCAL apR IS BODY:RADIUS + SHIP:APOAPSIS.
     LOCAL smaNow IS SHIP:ORBIT:SEMIMAJORAXIS.
     LOCAL vNow IS V_VIS_VIVA(apR, smaNow).
@@ -480,6 +496,7 @@ FUNCTION MAKE_CIRC_NODE {
 // sits at DEORBIT_PE, with the burn placed GLIDE_LEAD_DEG of true anomaly
 // before the runway's longitude crossing.
 FUNCTION MAKE_DEORBIT_NODE {
+    CLEAR_ALL_NODES().
     LOCAL rPe IS BODY:RADIUS + DEORBIT_PE.
     LOCAL smaNow IS SHIP:ORBIT:SEMIMAJORAXIS.
     LOCAL rNow IS BODY:RADIUS + SHIP:ALTITUDE.
@@ -597,8 +614,17 @@ FUNCTION EXECUTE_NODE {
     // goes nonzero, independent of the regular per-tick sampling, so the
     // real ignition moment (and the ETA/attitude at that instant) is always
     // visible in the black box even if it happened inside a warp jump.
-    LOG_MSG("IGNITION: throttle going live now. nd:ETA=" + ROUND(nd:ETA,1) +
-        "s, warp=" + KUNIVERSE:TIMEWARP:WARP + ", VANG=" + ROUND(VANG(SHIP:FACING:FOREVECTOR, nd:BURNVECTOR),2) + " deg.").
+    // FIX (post-flight #10 investigation): directly compare the LOCAL node
+    // handle's ETA against whatever NEXTNODE (what the navball shows) reports
+    // at this exact instant. If these two numbers disagree, it proves the
+    // code fired against a different node than what the flight plan/navball
+    // considered "next" -- confirming the multi-node theory outright instead
+    // of leaving it inferred.
+    LOCAL nextnodeEta IS -999.
+    IF HASNODE { SET nextnodeEta TO ROUND(NEXTNODE:ETA,1). }
+    LOG_MSG("IGNITION: throttle live. local nd:ETA=" + ROUND(nd:ETA,1) +
+        "s, NEXTNODE:ETA=" + nextnodeEta + "s, warp=" + KUNIVERSE:TIMEWARP:WARP +
+        ", VANG=" + ROUND(VANG(SHIP:FACING:FOREVECTOR, nd:BURNVECTOR),2) + " deg.").
 
     LOCAL initialDv IS nd:BURNVECTOR:MAG.
     LOCK THROTTLE TO MIN(1.0, MAX(0.02, nd:BURNVECTOR:MAG / 15)).
