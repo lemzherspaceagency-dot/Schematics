@@ -78,6 +78,7 @@ GLOBAL TURN_MID_PITCH IS 65.                   // pitch (deg above horizon) held
 GLOBAL TURN_END_ALT IS 45000.                  // "horizontal by 45km" per the craft's own design notes
 GLOBAL GEAR_DEPLOY_ALT IS 600.                 // radar altitude to drop gear, m
 GLOBAL FLARE_ALT IS 60.                        // radar altitude to begin flare, m
+GLOBAL STALL_SPEED_MIN IS 70.                  // below this, prioritize regaining speed over anything else
 
 // HONEST NOTE on logging rate: KSP's physics engine runs a fixed 20ms tick
 // (50 Hz) at normal warp -- that is a hard engine limit, not a kOS setting,
@@ -569,9 +570,19 @@ FUNCTION MAKE_DEORBIT_NODE {
     LOCAL vNew IS V_VIS_VIVA(rNow, smaNew).
     LOCAL dv IS vNew - vNow. // negative -> retrograde burn
 
-    // Find how long (in orbits) until our ground track longitude, minus the
-    // glide lead, lines up with the runway. Search forward in whole-orbit
-    // steps up to one full orbit for the closest longitude match.
+    // FIX (post-flight #12, real crash 740km off): a retrograde burn does
+    // NOT lower the ground track at the BURN point -- it lowers periapsis
+    // roughly HALF AN ORBIT away, on the opposite side of the planet. This
+    // search was matching the burn point's own longitude to the runway,
+    // which is the wrong point in the orbit entirely: confirmed from the
+    // black box, the ship was near -106 deg longitude (reasonably close to
+    // the intended aim point) AT THE BURN, but the periapsis/reentry ended
+    // up on a completely different part of the planet, ~740km from the
+    // runway -- not a glide-ratio tuning error, an orbital-mechanics error.
+    // Fix: search over candidate BURN times, but score each one by the
+    // ground longitude at PERIAPSIS TIME (burn time + half the orbital
+    // period, since a small retrograde burn barely changes the period),
+    // not at the burn time itself.
     LOCAL bestEta IS ETA:APOAPSIS.
     LOCAL bestDiff IS 999.
     LOCAL period IS SHIP:ORBIT:PERIOD.
@@ -579,7 +590,8 @@ FUNCTION MAKE_DEORBIT_NODE {
     LOCAL i IS 0.
     UNTIL i > steps {
         LOCAL tTry IS TIME:SECONDS + (period * i / steps).
-        LOCAL futurePos IS POSITIONAT(SHIP, tTry).
+        LOCAL periapsisTime IS tTry + (period / 2).
+        LOCAL futurePos IS POSITIONAT(SHIP, periapsisTime).
         LOCAL futureGeo IS BODY:GEOPOSITIONOF(futurePos).
         LOCAL aimLng IS RUNWAY_POS:LNG - GLIDE_LEAD_DEG.
         LOCAL diff IS ABS(MOD(futureGeo:LNG - aimLng + 540, 360) - 180).
@@ -943,7 +955,26 @@ FUNCTION REENTRY_AND_GLIDE {
         LOCAL idealAngle IS ARCTAN2(SHIP:ALTITUDE, distToGo).
         LOCAL pitchTarget IS -1 * MIN(25, MAX(2, idealAngle)).
 
-        IF SHIP:AIRSPEED < 150 { SET pitchTarget TO MAX(pitchTarget, -3). } // flatten out as we slow, avoid stalling
+        // FIX (post-flight #12, real crash): a far-off aim point (740km, from
+        // the deorbit targeting bug above) pinned idealAngle at its shallow
+        // floor for the ENTIRE glide -- altitude is negligible next to a
+        // distance that large. With no engine, flying nearly level for that
+        // long just bleeds airspeed with nothing to arrest it, and the black
+        // box showed exactly that: airspeed sank to 42-46 m/s (well under
+        // this vehicle's ~70 m/s stall speed), pitch oscillated wildly
+        // (49-86 degrees, repeatedly) as the steering fought for authority
+        // it didn't have at that speed, and it hit the ground at -22 m/s
+        // vertical -- a stall-mush crash, not a controlled glide. The
+        // targeting fix above should prevent needing this, but regardless of
+        // how close the aim point is, protecting airspeed has to come first:
+        // if we're already below stall speed, override the distance-based
+        // pitch entirely and nose down to regain speed, rather than holding
+        // whatever the glideslope math wants.
+        IF SHIP:AIRSPEED < STALL_SPEED_MIN {
+            SET pitchTarget TO -10.
+        } ELSE IF SHIP:AIRSPEED < 150 {
+            SET pitchTarget TO MAX(pitchTarget, -3). // flatten out as we slow, avoid stalling
+        }
 
         LOCK STEERING TO HEADING(courseToRunway, 90 + pitchTarget).
 
@@ -982,6 +1013,10 @@ FUNCTION REENTRY_AND_GLIDE {
         LOCAL courseToRunway IS RUNWAY_POS:HEADING.
         LOCAL flarePitch IS -2.
         IF SHIP:ALTITUDE < 20 { SET flarePitch TO 3. }
+        // Same stall guard as the main glide loop: don't flare (pitch up)
+        // into a stall this close to the ground -- that's the worst
+        // possible place for it. Prioritize airspeed over flare shape.
+        IF SHIP:AIRSPEED < STALL_SPEED_MIN { SET flarePitch TO -5. }
         LOCK STEERING TO HEADING(courseToRunway, 90 + flarePitch).
         WAIT 0.05.
     }
