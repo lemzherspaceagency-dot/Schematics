@@ -641,7 +641,16 @@ FUNCTION EXECUTE_NODE {
     // UNLOCK, so aligning early and then unlocking for the warp costs nothing
     // and guarantees the ship is already pointed correctly when the window
     // arrives, instead of racing to turn while the clock runs out.
-    LOCK STEERING TO nd:BURNVECTOR.
+    // FIX (post-flight #13, uncontrolled roll during burn): a bare
+    // Vector target leaves roll completely unconstrained -- kOS has no
+    // reference for which way is "up" around the burn axis, so it
+    // drifts/spins freely. Confirmed from the black box: roll rotated
+    // smoothly through ~120 degrees in a few seconds while align_err
+    // stayed tiny (0.01-0.66 deg) the whole time -- the burn direction
+    // itself was fine, only roll was spinning uncontrolled. LOOKDIRUP
+    // gives an explicit roll reference (local vertical) so the vehicle
+    // holds a stable roll throughout instead of free-spinning.
+    LOCK STEERING TO LOOKDIRUP(nd:BURNVECTOR, SHIP:UP:VECTOR).
     LOCAL preAlignStart IS TIME:SECONDS.
     WAIT UNTIL VANG(SHIP:FACING:FOREVECTOR, nd:BURNVECTOR) < 1.0 OR TIME:SECONDS - preAlignStart > 60.
 
@@ -675,7 +684,7 @@ FUNCTION EXECUTE_NODE {
         WARP_TO_UT(burnStart, 0).
     }
 
-    LOCK STEERING TO nd:BURNVECTOR.
+    LOCK STEERING TO LOOKDIRUP(nd:BURNVECTOR, SHIP:UP:VECTOR).
     LOCAL alignStart IS TIME:SECONDS.
     WAIT UNTIL VANG(SHIP:FACING:FOREVECTOR, nd:BURNVECTOR) < 1.0 OR TIME:SECONDS - alignStart > 20.
     LOCAL etaWaitStart IS TIME:SECONDS.
@@ -732,7 +741,7 @@ FUNCTION EXECUTE_NODE {
             LOG_MSG("WARNING: burn exceeded 3x estimated time, aborting node execution.").
             BREAK.
         }
-        LOCK STEERING TO nd:BURNVECTOR.
+        LOCK STEERING TO LOOKDIRUP(nd:BURNVECTOR, SHIP:UP:VECTOR).
         WAIT 0.02.
     }
 
