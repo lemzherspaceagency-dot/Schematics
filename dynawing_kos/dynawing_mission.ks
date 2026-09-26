@@ -360,8 +360,16 @@ FUNCTION OMS_DV_AVAILABLE {
 FUNCTION WARP_TO_UT {
     PARAMETER targetUT, leadSeconds.
     IF SHIP:ALTITUDE < 70000 AND SHIP:APOAPSIS > 70000 {
-        LOG_MSG("Waiting to clear 70km before warping (rails warp is capped near/in atmosphere).").
+        // FIX (in-flight report): this wait used to just sit at 1x real time.
+        // Rails warp is capped below 70km, but PHYSICS warp (up to 4x) is
+        // still available there and this was leaving it unused the entire
+        // time -- a real, free speedup being left on the table.
+        LOG_MSG("Waiting to clear 70km before warping (4x physics warp while we're still low).").
+        SET KUNIVERSE:TIMEWARP:MODE TO "PHYSICS".
+        SET KUNIVERSE:TIMEWARP:WARP TO 3. // max physics warp, ~4x
         WAIT UNTIL SHIP:ALTITUDE > 70000 OR ETA:APOAPSIS < 5.
+        SET KUNIVERSE:TIMEWARP:WARP TO 0.
+        SET KUNIVERSE:TIMEWARP:MODE TO "RAILS". // switch back before requesting rails warp below
     }
     LOCAL t IS targetUT - leadSeconds.
     IF t > TIME:SECONDS + 5 {
