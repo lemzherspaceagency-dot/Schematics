@@ -202,7 +202,19 @@ FUNCTION BLACKBOX_LOG {
 }
 
 // ---------------------------- HUD ----------------------------
+// FIX (HUD corruption report): kOS's terminal defaults to 50 columns wide,
+// but every PAD() call in this HUD pads strings out to 55-70 characters
+// wide before printing at a fixed AT() row/column. On a 50-column terminal,
+// printing a string longer than the remaining width WRAPS onto the next
+// row -- which overwrites/mixes with whatever fixed-position text is there,
+// exactly the garbled "lamed out, jettisoning" (missing its own start)
+// seen in-game. TERMINAL:WIDTH/HEIGHT are settable in kOS (confirmed
+// against docs); resizing to something roomy enough for our widest PAD()
+// call fixes the wraparound at the source instead of trimming text to fit
+// an artificially narrow window.
 FUNCTION HUD_INIT {
+    SET TERMINAL:WIDTH TO 80.
+    SET TERMINAL:HEIGHT TO 40.
     CLEARSCREEN.
     PRINT "======================= DYNAWING MISSION HUD =======================" AT(0,0).
     PRINT "----------------------------------------------------------------------" AT(0,15).
