@@ -114,11 +114,20 @@ FUNCTION LOG_MSG {
 // Pad/truncate a string to a fixed width so PRINT AT() cleanly overwrites
 // whatever was on that screen cell last tick (otherwise a shorter new string
 // leaves stale characters from a longer old one).
+// FIX (universal HUD, not a forced resize): clamp every pad width to
+// whatever the terminal ACTUALLY is (read live, every call), leaving a
+// 1-column margin so the last character never touches the terminal edge --
+// that's what was wrapping onto the next row and corrupting it. This adapts
+// to any terminal size instead of assuming or forcing one; a small terminal
+// gets truncated text, a large one gets the full requested width, and
+// nothing ever wraps.
 FUNCTION PAD {
     PARAMETER s, w.
+    LOCAL maxW IS TERMINAL:WIDTH - 1.
+    LOCAL effW IS MIN(w, maxW).
     LOCAL str IS s + "".
-    IF str:LENGTH > w { RETURN str:SUBSTRING(0, w). }
-    UNTIL str:LENGTH >= w { SET str TO str + " ". }
+    IF str:LENGTH > effW { RETURN str:SUBSTRING(0, effW). }
+    UNTIL str:LENGTH >= effW { SET str TO str + " ". }
     RETURN str.
 }
 
@@ -212,37 +221,45 @@ FUNCTION BLACKBOX_LOG {
 // against docs); resizing to something roomy enough for our widest PAD()
 // call fixes the wraparound at the source instead of trimming text to fit
 // an artificially narrow window.
+// Clamp a target row to whatever the terminal's CURRENT height is (read
+// live, every call) so a mid-flight resize -- taller or shorter -- never
+// tries to print past the actual window. A too-short terminal just
+// overlaps some rows rather than erroring; that's an acceptable
+// degradation compared to failing outright.
+FUNCTION SAFE_ROW {
+    PARAMETER r.
+    RETURN MIN(r, TERMINAL:HEIGHT - 1).
+}
+
 FUNCTION HUD_INIT {
-    SET TERMINAL:WIDTH TO 80.
-    SET TERMINAL:HEIGHT TO 40.
     CLEARSCREEN.
-    PRINT "======================= DYNAWING MISSION HUD =======================" AT(0,0).
-    PRINT "----------------------------------------------------------------------" AT(0,15).
-    PRINT "RECENT EVENTS:" AT(0,16).
-    PRINT "----------------------------------------------------------------------" AT(0,25).
+    PRINT PAD("======================= DYNAWING MISSION HUD =======================", 200) AT(0, SAFE_ROW(0)).
+    PRINT PAD("----------------------------------------------------------------------", 200) AT(0, SAFE_ROW(15)).
+    PRINT PAD("RECENT EVENTS:", 200) AT(0, SAFE_ROW(16)).
+    PRINT PAD("----------------------------------------------------------------------", 200) AT(0, SAFE_ROW(25)).
 }
 
 FUNCTION HUD_UPDATE {
-    PRINT PAD("PHASE: " + MISSION_PHASE, 40) AT(0,1).
-    PRINT PAD("T+ " + ROUND(MISSIONTIME,1) + " s   UT " + ROUND(TIME:SECONDS,1), 40) AT(0,2).
-    PRINT PAD("Altitude:  " + ROUND(SHIP:ALTITUDE,0) + " m   Radar: " + ROUND(ALT:RADAR,0) + " m", 50) AT(0,3).
-    PRINT PAD("V.Speed:   " + ROUND(SHIP:VERTICALSPEED,1) + " m/s", 40) AT(0,4).
-    PRINT PAD("Airspeed:  " + ROUND(SHIP:AIRSPEED,1) + " m/s   Ground: " + ROUND(SHIP:GROUNDSPEED,1) + " m/s", 55) AT(0,5).
-    PRINT PAD("Orbit vel: " + ROUND(SHIP:VELOCITY:ORBIT:MAG,1) + " m/s", 40) AT(0,6).
-    PRINT PAD("Apoapsis:  " + ROUND(SHIP:APOAPSIS,0) + " m", 40) AT(0,7).
-    PRINT PAD("Periapsis: " + ROUND(SHIP:PERIAPSIS,0) + " m", 40) AT(0,8).
-    PRINT PAD("Throttle:  " + ROUND(THROTTLE*100,0) + " %   Stage: " + STAGE:NUMBER, 40) AT(0,9).
-    PRINT PAD("Mass:      " + ROUND(SHIP:MASS,2) + " t   Q: " + ROUND(SHIP:Q,3), 40) AT(0,10).
-    PRINT PAD("Attitude:  P " + ROUND(SHIP:FACING:PITCH,1) + "  Y " + ROUND(SHIP:FACING:YAW,1) + "  R " + ROUND(SHIP:FACING:ROLL,1), 55) AT(0,11).
-    PRINT PAD("Gear:" + GEAR + " Brakes:" + BRAKES + " RCS:" + RCS + " SAS:" + SAS, 55) AT(0,12).
-    PRINT PAD("Dist to runway: " + ROUND(RUNWAY_POS:DISTANCE,0) + " m   Brg: " + ROUND(RUNWAY_POS:HEADING,0) + " deg", 55) AT(0,13).
-    PRINT PAD("Warnings: " + WARNING_COUNT + "   Blackbox rows: " + BLACKBOX_ROWS, 55) AT(0,14).
+    PRINT PAD("PHASE: " + MISSION_PHASE, 40) AT(0, SAFE_ROW(1)).
+    PRINT PAD("T+ " + ROUND(MISSIONTIME,1) + " s   UT " + ROUND(TIME:SECONDS,1), 40) AT(0, SAFE_ROW(2)).
+    PRINT PAD("Altitude:  " + ROUND(SHIP:ALTITUDE,0) + " m   Radar: " + ROUND(ALT:RADAR,0) + " m", 50) AT(0, SAFE_ROW(3)).
+    PRINT PAD("V.Speed:   " + ROUND(SHIP:VERTICALSPEED,1) + " m/s", 40) AT(0, SAFE_ROW(4)).
+    PRINT PAD("Airspeed:  " + ROUND(SHIP:AIRSPEED,1) + " m/s   Ground: " + ROUND(SHIP:GROUNDSPEED,1) + " m/s", 55) AT(0, SAFE_ROW(5)).
+    PRINT PAD("Orbit vel: " + ROUND(SHIP:VELOCITY:ORBIT:MAG,1) + " m/s", 40) AT(0, SAFE_ROW(6)).
+    PRINT PAD("Apoapsis:  " + ROUND(SHIP:APOAPSIS,0) + " m", 40) AT(0, SAFE_ROW(7)).
+    PRINT PAD("Periapsis: " + ROUND(SHIP:PERIAPSIS,0) + " m", 40) AT(0, SAFE_ROW(8)).
+    PRINT PAD("Throttle:  " + ROUND(THROTTLE*100,0) + " %   Stage: " + STAGE:NUMBER, 40) AT(0, SAFE_ROW(9)).
+    PRINT PAD("Mass:      " + ROUND(SHIP:MASS,2) + " t   Q: " + ROUND(SHIP:Q,3), 40) AT(0, SAFE_ROW(10)).
+    PRINT PAD("Attitude:  P " + ROUND(SHIP:FACING:PITCH,1) + "  Y " + ROUND(SHIP:FACING:YAW,1) + "  R " + ROUND(SHIP:FACING:ROLL,1), 55) AT(0, SAFE_ROW(11)).
+    PRINT PAD("Gear:" + GEAR + " Brakes:" + BRAKES + " RCS:" + RCS + " SAS:" + SAS, 55) AT(0, SAFE_ROW(12)).
+    PRINT PAD("Dist to runway: " + ROUND(RUNWAY_POS:DISTANCE,0) + " m   Brg: " + ROUND(RUNWAY_POS:HEADING,0) + " deg", 55) AT(0, SAFE_ROW(13)).
+    PRINT PAD("Warnings: " + WARNING_COUNT + "   Blackbox rows: " + BLACKBOX_ROWS, 55) AT(0, SAFE_ROW(14)).
 
     LOCAL i IS 0.
     UNTIL i >= 8 {
         LOCAL msg IS "".
         IF i < RECENT_MSGS:LENGTH { SET msg TO RECENT_MSGS[i]. }
-        PRINT PAD(msg, 70) AT(0, 17+i).
+        PRINT PAD(msg, 70) AT(0, SAFE_ROW(17+i)).
         SET i TO i + 1.
     }
 }
@@ -918,7 +935,7 @@ FUNCTION REENTRY_AND_GLIDE {
     LOG_MSG("Vehicle stopped. Miss distance from runway aim point: " + ROUND(missDist,0) + " m.").
     LOG_MSG("If short: decrease GLIDE_LEAD_DEG. If long/overshot: increase it.").
     HUD_UPDATE(). // final draw so the HUD shows the landed state, not a stale tick
-    PRINT PAD(">>> MISSION COMPLETE -- black box: " + BLACKBOX_ROWS + " rows at " + BLACKBOX_PATH, 70) AT(0,26).
+    PRINT PAD(">>> MISSION COMPLETE -- black box: " + BLACKBOX_ROWS + " rows at " + BLACKBOX_PATH, 70) AT(0, SAFE_ROW(26)).
 }
 
 // ============================================================================
