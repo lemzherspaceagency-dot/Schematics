@@ -227,8 +227,8 @@ FUNCTION BLACKBOX_LOG {
 // overlaps some rows rather than erroring; that's an acceptable
 // degradation compared to failing outright.
 FUNCTION SAFE_ROW {
-    PARAMETER r.
-    RETURN MIN(r, TERMINAL:HEIGHT - 1).
+    PARAMETER rowNum.
+    RETURN MIN(rowNum, TERMINAL:HEIGHT - 1).
 }
 
 FUNCTION HUD_INIT {
