@@ -453,7 +453,23 @@ FUNCTION WARP_TO_UT {
     IF t > TIME:SECONDS + 5 {
         LOCAL intendedGap IS t - TIME:SECONDS.
         LOG_MSG("Warping " + ROUND(intendedGap,0) + "s ahead (capped, stepped-down warp).").
-        UNTIL TIME:SECONDS >= t - 10 {
+        // FIX (post-flight #11, real crash): this loop only ever tracked
+        // time-remaining-to-target, never altitude. Confirmed from the black
+        // box: rails warp (level 2-3) stayed engaged continuously from 70km
+        // all the way down past 2km altitude during the coast-to-reentry
+        // warp -- the ship warped straight through the ENTIRE atmospheric
+        // entry with zero steering control, because the 120s lead margin
+        // wasn't enough once actual atmospheric deceleration extended how
+        // long the remaining descent took, and this loop had no way to
+        // notice that and bail out early. REENTRY_AND_GLIDE() never got a
+        // chance to run; the vehicle just fell, uncontrolled, until it broke
+        // up. Added a hard, altitude-based emergency exit: regardless of how
+        // much time is left, if we're ever below 70km at high speed while
+        // this loop is running, cut warp and return immediately. Time-based
+        // margins can be miscalculated; this can't be, because it checks the
+        // one thing that actually matters (are we already in the atmosphere)
+        // instead of a prediction of when that would happen.
+        UNTIL TIME:SECONDS >= t - 10 OR SHIP:ALTITUDE < 70000 {
             LOCAL remain IS t - TIME:SECONDS.
             IF remain > 600 { SET KUNIVERSE:TIMEWARP:WARP TO 4. }      // ~100x
             ELSE IF remain > 120 { SET KUNIVERSE:TIMEWARP:WARP TO 3. } // ~50x
@@ -462,6 +478,10 @@ FUNCTION WARP_TO_UT {
             WAIT 1.
         }
         SET KUNIVERSE:TIMEWARP:WARP TO 0.
+        IF SHIP:ALTITUDE < 70000 {
+            LOG_MSG("WARNING: dropped below 70km during warp -- cutting warp early, handing back control now.").
+            RETURN.
+        }
         WAIT UNTIL TIME:SECONDS >= t - 1.
         // Diagnostic (post-flight #8): confirm in the black box whether this
         // actually advanced game time by roughly the intended amount, so a
