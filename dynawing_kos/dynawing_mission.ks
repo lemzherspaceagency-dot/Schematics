@@ -266,6 +266,7 @@ FUNCTION CHECK_ENGINE_OUT {
 // commit to a burn node we can't actually finish.
 FUNCTION OMS_MONOPROP_AVAILABLE {
     LOCAL total IS 0.
+    LOCAL allParts IS LIST().
     LIST PARTS IN allParts.
     FOR p IN allParts {
         IF p:NAME = "omsEngine" {
@@ -298,8 +299,19 @@ FUNCTION OMS_DV_AVAILABLE {
 // itself -- it's the same call the game uses for "warp to next node," and it
 // already refuses to physics-warp inside the atmosphere, so it's safe to call
 // even when the target time is close to atmospheric entry.
+// FIX (post-flight #2): "rails" warp -- the fast kind, up to 100,000x -- is
+// disabled by the game itself below ~70km altitude near an atmospheric body.
+// Only "physics" warp (capped at ~4x) is available under that, which is why
+// a WARPTO called right after MECO can crawl: if the ship is still under
+// 70km when it's called, KSP silently restricts it to 4x no matter what the
+// script asks for. Wait until clear of the atmosphere first so the warp
+// request actually gets the fast rails mode instead of being throttled.
 FUNCTION WARP_TO_UT {
     PARAMETER targetUT, leadSeconds.
+    IF SHIP:ALTITUDE < 70000 AND SHIP:APOAPSIS > 70000 {
+        LOG_MSG("Waiting to clear 70km before warping (rails warp is capped near/in atmosphere).").
+        WAIT UNTIL SHIP:ALTITUDE > 70000 OR ETA:APOAPSIS < 5.
+    }
     LOCAL t IS targetUT - leadSeconds.
     IF t > TIME:SECONDS + 5 {
         LOG_MSG("Warping " + ROUND(t - TIME:SECONDS,0) + "s ahead to save real time.").
@@ -475,7 +487,18 @@ FUNCTION ASCENT {
     // target, capped so we never overshoot apoapsis by more than 15%.
     LOCAL ssmeIgniteTime IS TIME:SECONDS.
     LOCK STEERING TO HEADING(90, PITCH_PROGRAM()).
-    UNTIL (SHIP:APOAPSIS >= TARGET_APO AND SHIP:PERIAPSIS >= TARGET_APO * 0.85) OR ALL_FLAMED_OUT(ssmes) {
+    // FIX (post-flight #2): the old exit condition required BOTH apoapsis AND
+    // periapsis to reach target, with only a soft throttle-down (never a full
+    // cut) above 1.15x target as a guard. When periapsis lagged badly, the
+    // loop kept burning at reduced throttle waiting for it to catch up, and
+    // apoapsis (which a nonzero throttle still raises) ballooned to 304 km
+    // before the flight ended stuck in that orbit. A HARD_APO_CAP now forces
+    // an unconditional exit regardless of periapsis -- an eccentric orbit
+    // that still needs OMS work is a recoverable failure; a 300km+ orbit
+    // that ran the SSMEs dry chasing periapsis is not.
+    LOCAL HARD_APO_CAP IS TARGET_APO * 1.3.
+    UNTIL (SHIP:APOAPSIS >= TARGET_APO AND SHIP:PERIAPSIS >= TARGET_APO * 0.85)
+        OR SHIP:APOAPSIS > HARD_APO_CAP OR ALL_FLAMED_OUT(ssmes) {
         // FAILSAFE: engine-out check with a 3s spool-up grace period. Checking
         // THRUST vs. AVAILABLETHRUST from the instant of ignition false-triggers
         // every launch because engines aren't at full thrust yet -- this is
@@ -485,13 +508,17 @@ FUNCTION ASCENT {
         }
 
         IF SHIP:APOAPSIS > TARGET_APO * 1.15 {
-            LOCK THROTTLE TO 0.1. // overshoot safety, should rarely trigger
+            LOCK THROTTLE TO 0.1. // soft trim, still lets periapsis catch up a little
         } ELSE {
             LOCK THROTTLE TO 1.0.
         }
         WAIT 0.05.
     }
     LOCK THROTTLE TO 0.
+    IF SHIP:APOAPSIS > HARD_APO_CAP {
+        LOG_MSG("WARNING: hit hard apoapsis cap before periapsis caught up. Cutting MECO now;").
+        LOG_MSG("orbit will be eccentric and circularization will cost more OMS dv than planned.").
+    }
     WAIT 0.5.
     UNLOCK THROTTLE.
     LOG_MSG("SSME cutoff: Ap=" + ROUND(SHIP:APOAPSIS,0) + " Pe=" + ROUND(SHIP:PERIAPSIS,0) + " m.").
