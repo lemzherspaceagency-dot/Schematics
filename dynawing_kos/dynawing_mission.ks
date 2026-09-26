@@ -133,8 +133,25 @@ FUNCTION BLACKBOX_INIT {
     LOG "t_UT,mission_time,phase,altitude,radar_alt,vspeed,airspeed,groundspeed,orbital_speed," +
         "apoapsis,periapsis,mass_t,throttle,stage,pitch,heading,roll,dynamic_pressure," +
         "lat,lng,gear,brakes,rcs,sas,dist_to_runway,bearing_to_runway,warning_count,last_warning," +
-        "blackbox_rows,last_event"
+        "blackbox_rows,oms_monoprop_units,oms_engines_ignited,oms_engines_flamedout,oms_available_thrust," +
+        "last_event"
         TO BLACKBOX_PATH.
+}
+
+// So a future "OMS has ~0 m/s" moment can be diagnosed from the black box
+// directly instead of inferred from mass deltas: was it really out of
+// propellant, or were the engines just not producing thrust?
+FUNCTION OMS_ENGINE_STATS {
+    LOCAL omsEngines IS ENGINES_NAMED("omsEngine").
+    LOCAL ignited IS 0.
+    LOCAL flamedOut IS 0.
+    LOCAL thrust IS 0.
+    FOR e IN omsEngines {
+        IF e:IGNITION { SET ignited TO ignited + 1. }
+        IF e:FLAMEOUT { SET flamedOut TO flamedOut + 1. }
+        IF e:IGNITION AND NOT e:FLAMEOUT { SET thrust TO thrust + e:AVAILABLETHRUST. }
+    }
+    RETURN LIST(ignited, flamedOut, thrust).
 }
 
 FUNCTION BLACKBOX_LOG {
@@ -144,6 +161,7 @@ FUNCTION BLACKBOX_LOG {
     // CSV columns by a downstream parser.
     SET lastEvent TO lastEvent:REPLACE(",", ";").
     LOCAL lastWarn IS LAST_WARNING:REPLACE(",", ";").
+    LOCAL omsStats IS OMS_ENGINE_STATS().
 
     LOCAL row IS TIME:SECONDS + "," + ROUND(MISSIONTIME,3) + "," + MISSION_PHASE + "," +
         ROUND(SHIP:ALTITUDE,1) + "," + ROUND(ALT:RADAR,1) + "," + ROUND(SHIP:VERTICALSPEED,2) + "," +
@@ -154,7 +172,9 @@ FUNCTION BLACKBOX_LOG {
         ROUND(SHIP:Q,4) + "," + ROUND(SHIP:GEOPOSITION:LAT,5) + "," + ROUND(SHIP:GEOPOSITION:LNG,5) + "," +
         GEAR + "," + BRAKES + "," + RCS + "," + SAS + "," +
         ROUND(RUNWAY_POS:DISTANCE,0) + "," + ROUND(RUNWAY_POS:HEADING,0) + "," +
-        WARNING_COUNT + "," + lastWarn + "," + BLACKBOX_ROWS + "," + lastEvent.
+        WARNING_COUNT + "," + lastWarn + "," + BLACKBOX_ROWS + "," +
+        ROUND(OMS_MONOPROP_AVAILABLE(),1) + "," + omsStats[0] + "," + omsStats[1] + "," +
+        ROUND(omsStats[2],1) + "," + lastEvent.
     LOG row TO BLACKBOX_PATH.
     SET BLACKBOX_ROWS TO BLACKBOX_ROWS + 1.
 }
@@ -283,18 +303,21 @@ FUNCTION CHECK_ENGINE_OUT {
 
 // FAILSAFE: total MonoPropellant available to the OMS pods, so we never
 // commit to a burn node we can't actually finish.
+// FIX (post-flight #6): this was checking p:RESOURCES on parts NAMED
+// "omsEngine" -- but engines don't store their own propellant, the TANKS
+// do (mk3FuselageMONO, rcsTankRadialLong, etc.), fed to the engine via
+// crossfeed. So this was summing the OMS engines' own near-empty local
+// pools and basically always reporting ~0, regardless of how much fuel
+// the vehicle actually had. Confirmed from the black box: circularize
+// used only 222 units (of however many the tanks actually hold) for a
+// clean 57 m/s burn, yet OMS_DV_AVAILABLE reported ~0 m/s right after --
+// not a real fuel shortage, a counting bug. SHIP:RESOURCES gives the
+// correct whole-vessel aggregate regardless of which parts store it.
 FUNCTION OMS_MONOPROP_AVAILABLE {
-    LOCAL total IS 0.
-    LOCAL allParts IS LIST().
-    LIST PARTS IN allParts.
-    FOR p IN allParts {
-        IF p:NAME = "omsEngine" {
-            FOR res IN p:RESOURCES {
-                IF res:NAME = "MonoPropellant" { SET total TO total + res:AMOUNT. }
-            }
-        }
+    FOR res IN SHIP:RESOURCES {
+        IF res:NAME:TOUPPER():CONTAINS("MONOPROP") { RETURN res:AMOUNT. }
     }
-    RETURN total.
+    RETURN 0.
 }
 
 // FAILSAFE: rough propellant-to-dv check using the rocket equation with the
