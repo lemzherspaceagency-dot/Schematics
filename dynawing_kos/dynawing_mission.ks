@@ -889,11 +889,21 @@ FUNCTION REENTRY_AND_GLIDE {
     // FIX (pre-flight review): SHIP:SRFRETROGRADE alone is ZERO angle of
     // attack -- nose pointed exactly opposite velocity. That is NOT what the
     // craft's own design notes call for ("fly a high-AoA reentry"): a real
-    // shuttle-style entry flies nose-up 30-40 degrees off retrograde for
-    // lift and to keep the belly (not the nose) taking the heating. Using
-    // plain retrograde was silently flying the wrong attitude for the whole
-    // hypersonic entry.
-    LOCAL REENTRY_AOA IS 35.
+    // shuttle-style entry flies nose-up off retrograde for lift and to keep
+    // the belly (not the nose) taking the heating. Using plain retrograde
+    // was silently flying the wrong attitude for the whole hypersonic entry.
+    //
+    // TUNED (craft file confirms the geometry): GearMedium (main gear, i.e.
+    // the belly) sits at a strongly negative Z-offset vs. the fuselage
+    // centerline, and the AdvancedCanard pair is mounted at the nose as
+    // pitch-only trim surfaces (ignorePitch=False, ignoreYaw/Roll=True) --
+    // the same role real Shuttle canards/body-flaps play, and only useful if
+    // the vehicle flies nose-up, belly-first. There is no ablative heat
+    // shield part anywhere on this craft (no AblatorResource at all), so
+    // attitude is the ONLY heat protection it has. 40 degrees matches the
+    // real Space Shuttle's actual hypersonic entry AoA, the closest real
+    // reference for a deliberate shuttle-analog with this exact layout.
+    LOCAL REENTRY_AOA IS 40.
     LOCK STEERING TO AOA_RETROGRADE(REENTRY_AOA).
     WAIT UNTIL SHIP:ALTITUDE < 60000.
 
