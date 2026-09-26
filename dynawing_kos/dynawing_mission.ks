@@ -936,8 +936,21 @@ FUNCTION REENTRY_AND_GLIDE {
     // attitude is the ONLY heat protection it has. 40 degrees matches the
     // real Space Shuttle's actual hypersonic entry AoA, the closest real
     // reference for a deliberate shuttle-analog with this exact layout.
+    // FIX (post-flight #14, tumble at 49km): confirmed from the black box --
+    // rock-solid attitude (pitch~0.1, roll~90) from 70km all the way down to
+    // 49km while dynamic pressure was near zero, then within 2-3 seconds of
+    // Q first reaching ~0.005 (49-48km, where aerodynamic force starts to
+    // matter), pitch and roll both exploded into chaos. Same root cause as
+    // the burn-steering roll issue: AOA_RETROGRADE() returns a bare Vector,
+    // which only constrains the nose direction -- roll is left completely
+    // unconstrained. That's harmless in vacuum (nothing to push against),
+    // but the instant real aerodynamic force appears, an uncontrolled roll
+    // lets the vehicle get knocked out of a stable, wings-level attitude and
+    // it spins out with no reference to recover to. LOOKDIRUP pins roll to
+    // local vertical (wings level relative to the horizon), the standard
+    // stable reentry attitude, instead of leaving it to wander.
     LOCAL REENTRY_AOA IS 40.
-    LOCK STEERING TO AOA_RETROGRADE(REENTRY_AOA).
+    LOCK STEERING TO LOOKDIRUP(AOA_RETROGRADE(REENTRY_AOA), SHIP:UP:VECTOR).
     WAIT UNTIL SHIP:ALTITUDE < 60000.
 
     // Hold high-AoA retrograde through the hottest part of reentry.
