@@ -481,15 +481,39 @@ FUNCTION EXECUTE_NODE {
     IF F < 1 { SET F TO 1. }
     LOCAL burnTime IS (SHIP:MASS * 1000 * dvMag) / F.
 
+    // FIX (post-flight #7): this used to call the raw, unguarded
+    // KUNIVERSE:TIMEWARP:WARPTO() -- the exact same overshoot-prone call we
+    // already replaced everywhere else with the capped/stepped-down
+    // WARP_TO_UT(). Confirmed from the black box: the deorbit burn fired at
+    // the right computed dv (-42.4 m/s, correctly retrograde) but APOAPSIS
+    // WENT UP instead of down -- the burn's timing had drifted past the
+    // node's planned geometry (a Node's dv components are fixed relative to
+    // the orbital frame AT ITS SCHEDULED TIME; firing meaningfully late
+    // breaks that basis even though the node still reports a "valid"
+    // burn vector). Using the hardened warp reduces how far off-time we can
+    // land in the first place.
     LOCAL burnStart IS TIME:SECONDS + nd:ETA - (burnTime / 2) - 10.
     IF burnStart > TIME:SECONDS + 15 {
-        KUNIVERSE:TIMEWARP:WARPTO(burnStart).
-        WAIT UNTIL TIME:SECONDS >= burnStart.
+        WARP_TO_UT(burnStart, 0).
     }
 
     LOCK STEERING TO nd:BURNVECTOR.
-    WAIT UNTIL nd:ETA <= (burnTime / 2) + 1.
+    LOCAL etaWaitStart IS TIME:SECONDS.
+    WAIT UNTIL nd:ETA <= (burnTime / 2) + 1 OR TIME:SECONDS - etaWaitStart > 60.
     WAIT UNTIL VANG(SHIP:FACING:FOREVECTOR, nd:BURNVECTOR) < 2.0.
+
+    // FAILSAFE: even with the hardened warp, if timing still drifted badly
+    // enough that we're clearly not at the planned burn window anymore,
+    // firing anyway would repeat exactly the wrong-direction burn seen in
+    // flight. A missed/rescheduled burn is a recoverable, safe failure; a
+    // burn executed against stale node geometry is not -- it wastes
+    // propellant AND moves the orbit the wrong way.
+    IF ABS(nd:ETA) > (burnTime / 2) + 30 {
+        LOG_MSG("CRITICAL: burn timing drifted too far off-plan (ETA=" + ROUND(nd:ETA,1) + "s), aborting burn.").
+        LOG_MSG("Node left in place -- rerun EXECUTE_NODE or replan rather than fire against stale geometry.").
+        UNLOCK STEERING.
+        RETURN.
+    }
 
     LOCAL initialDv IS nd:BURNVECTOR:MAG.
     LOCK THROTTLE TO MIN(1.0, MAX(0.02, nd:BURNVECTOR:MAG / 15)).
@@ -809,12 +833,33 @@ UNLOCK STEERING.
 CIRCULARIZE().
 LOG_MSG("Orbit achieved. Coasting before deorbit planning.").
 WAIT 5.
-DEORBIT().
+
+// FIX (post-flight #7): EXECUTE_NODE can now abort a burn that drifted too
+// far off-plan instead of firing against stale geometry (see EXECUTE_NODE).
+// But that means DEORBIT() alone doesn't guarantee periapsis actually came
+// down -- without a check here, the mission would go straight into a
+// "WAIT UNTIL ALTITUDE < 70000" that could wait forever on an orbit that
+// never decays. Verify and retry rather than assume success.
+LOCAL deorbitAttempts IS 0.
+UNTIL SHIP:PERIAPSIS < 60000 OR deorbitAttempts >= 3 {
+    DEORBIT().
+    SET deorbitAttempts TO deorbitAttempts + 1.
+    IF SHIP:PERIAPSIS >= 60000 {
+        LOG_MSG("WARNING: periapsis still " + ROUND(SHIP:PERIAPSIS,0) + "m after deorbit attempt " + deorbitAttempts + ". Retrying.").
+        WAIT 5.
+    }
+}
+IF SHIP:PERIAPSIS >= 60000 {
+    LOG_MSG("CRITICAL: deorbit failed after 3 attempts, periapsis still " + ROUND(SHIP:PERIAPSIS,0) + "m.").
+    LOG_MSG("This orbit will not decay on its own. Manual intervention needed.").
+}
+
 SET MISSION_PHASE TO "COAST-TO-REENTRY".
 // Warp the long coast back down, dropping out with a generous 120s margin
 // before periapsis so we're well clear of the atmosphere when warp ends --
 // WARPTO already refuses to physics-warp inside atmosphere, this margin is
 // just to make sure REENTRY_AND_GLIDE gets full manual control in time.
 WARP_TO_UT(TIME:SECONDS + ETA:PERIAPSIS, 120).
-WAIT UNTIL SHIP:ALTITUDE < 70000.
+LOCAL reentryWaitStart IS TIME:SECONDS.
+WAIT UNTIL SHIP:ALTITUDE < 70000 OR TIME:SECONDS - reentryWaitStart > SHIP:ORBIT:PERIOD + 300.
 REENTRY_AND_GLIDE().
