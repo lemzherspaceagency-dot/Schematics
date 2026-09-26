@@ -600,10 +600,29 @@ FUNCTION EXECUTE_NODE {
     LOCAL preAlignStart IS TIME:SECONDS.
     WAIT UNTIL VANG(SHIP:FACING:FOREVECTOR, nd:BURNVECTOR) < 1.0 OR TIME:SECONDS - preAlignStart > 60.
 
+    // FIX (post-flight #10, actual root cause): kOS's AVAILABLETHRUST (and
+    // thus TOTAL_AVAILABLE_THRUST here) is in KILONEWTONS, not Newtons --
+    // confirmed against kOS docs. This formula converted SHIP:MASS from tons
+    // to kg (*1000) but never converted F from kN to N, a net 1000x error:
+    // burnTime came out as ~23,600s instead of ~24s. That single corrupted
+    // number explains every symptom seen across flights 5-9 at once -- it's
+    // been hiding underneath the steering-lock fix, the align-first fix, the
+    // node-clearing fix, and the warp hardening, none of which could ever
+    // work while this was silently making every downstream timing check
+    // vacuously true:
+    //   burnStart = now + ETA - burnTime/2 - 10 came out deeply NEGATIVE
+    //     (burnTime/2 ~11800s dwarfing ETA ~1080s), so "IF burnStart > now+15"
+    //     was always false -- the warp branch never ran, ever.
+    //   "WAIT UNTIL nd:ETA <= burnTime/2 + 1" was satisfied on the very
+    //     first check (1080 <= ~11800), i.e. no actual wait at all.
+    //   The abort sanity check ("ETA drifted too far") could never trigger
+    //     for the same reason -- its own threshold was equally corrupted.
+    // Tons and kN happen to cancel the same SI conversion factor, so the
+    // fix is to remove the erroneous *1000 entirely, not add another one.
     LOCAL dvMag IS nd:BURNVECTOR:MAG.
     LOCAL F IS TOTAL_AVAILABLE_THRUST().
     IF F < 1 { SET F TO 1. }
-    LOCAL burnTime IS (SHIP:MASS * 1000 * dvMag) / F.
+    LOCAL burnTime IS (SHIP:MASS * dvMag) / F.
 
     LOCAL burnStart IS TIME:SECONDS + nd:ETA - (burnTime / 2) - 10.
     IF burnStart > TIME:SECONDS + 15 {
