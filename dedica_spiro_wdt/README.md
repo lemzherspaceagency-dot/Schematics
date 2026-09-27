@@ -12,6 +12,7 @@ and a drop of glue.
 
 | File | What |
 |---|---|
+| **`out/spiro51_A1mini.3mf`** | **Bambu Studio project for the A1 mini.** Printer, filament, process and per-part settings are already set, across 3 plates. |
 | `out/spiro51_dedica_wdt.3mf` | All 5 parts on one plate, already in print orientation. Open it in Bambu Studio. |
 | `out/spiro51_*.stl` | The same parts as separate STLs |
 | `generate.py` | Parametric source. Change the numbers at the top and run it again. |
@@ -26,11 +27,39 @@ and a drop of glue.
 
 That's the whole list. The planet axle and the knob are printed snap pins, and the lid snaps onto the base.
 
-## Printing (Bambu P1S, PLA or PETG)
+## Printing on a Bambu Lab A1 mini (recommended: `spiro51_A1mini.3mf`)
+
+Open the file in Bambu Studio. It is already set up with:
+
+- **Printer:** A1 mini 0.4 nozzle, Textured PEI plate
+- **Filament:** Bambu PLA Basic. Pick your own filament if it's different. PETG also works and handles a hot portafilter better.
+- **Process:** 0.16 mm Optimal, 3 walls, 15 % gyroid infill, no supports, 0.15 mm elephant-foot compensation
+
+Each part also has its own settings (right-click the part, then **Object settings**):
+
+| Part | Changes | Why |
+|---|---|---|
+| Base | random seam | keeps the seam bump off the gear teeth |
+| Planet | 4 walls, 25 % infill, random seam | solid teeth and solid walls round the needle holes |
+| Lid | 4 walls | the snap pin prints solid, so it's strong |
+| Knob | 4 walls, 4 mm brim | tall part on a small footprint |
+| Stand | 2 walls, 10 % infill | it's only a cup |
+
+| Plate | What | Approx. filament |
+|---|---|---|
+| 1 | **Base: print this first** and test it in your basket | 15 g |
+| 2 | Planet, lid and knob | 22 g |
+| 3 | Stand (optional) | 24 g |
+
+The grams come from test-slicing the STLs with PrusaSlicer at the same settings. Bambu Studio shows the real print time once you slice (roughly 45 min to 1 h 15 min per plate on an A1 mini).
+
+The presets come from the official Bambu Studio profiles. `fetch_profiles.py` downloads them into `bambu_profiles/`, and `build_bambu_3mf.py` builds the project.
+
+## Printing on other printers (PLA or PETG)
 
 - 0.2 mm layers (0.16 mm gives smoother gears), 3 walls, 15–20 % infill
 - **No supports.** Every part is already placed support-free: base and lid print upside down, and the knob prints with its peg up.
-- Rough filament use is about 65 g for everything, and about 35 g without the stand.
+- Rough filament use is about 61 g for everything, and about 37 g without the stand.
 
 | Part | Size | Notes |
 |---|---|---|
@@ -73,4 +102,5 @@ The tuning parameters are at the top of `generate.py`:
 pip install numpy manifold3d trimesh pillow matplotlib
 python3 generate.py   # STL + 3MF into out/
 python3 render.py     # preview PNGs
+python3 build_bambu_3mf.py  # A1 mini Bambu Studio project
 ```
