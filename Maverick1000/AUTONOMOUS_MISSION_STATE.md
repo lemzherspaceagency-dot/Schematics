@@ -48,6 +48,49 @@ claims.
 - Imported into git (this repo had no prior history for this project)
   and pushed to `claude/fabrication-readiness-review-135m0j`.
 
+### Follow-up: real visual (PNG/SVG) inspection, not just DRC
+
+DRC only catches clearance/connectivity/hole rules — it does not look at
+the board the way a human reviewing a fab render does (silkscreen
+readability, text sitting on pads/copper, mechanical-outline sanity,
+whether a pour looks right). Re-rendered the current board fresh with
+`kicad-cli pcb export svg` (not the stale bundled preview PNGs) and
+visually inspected:
+
+- `verification/visual_audit_2026-09-28/top_composite.png` (F.Cu +
+  F.Mask + F.Silkscreen + F.Fab) and `top_silk_only2.png` (silkscreen +
+  fab only, drawing-sheet frame excluded — the first export attempt
+  included the frame, which produced a misleading black line + zone
+  letter "A" cutting across the GNSS label; re-exported with
+  `--exclude-drawing-sheet` to remove that artifact).
+- `bottom_composite.png` (B.Cu + B.Mask + B.Silkscreen + B.Fab) — no
+  components on the bottom side, plain GND-pour copper, no silkscreen
+  present to collide with anything.
+- `all_copper.png` (F.Cu/In1.Cu/In2.Cu/B.Cu overlaid) — dense but no
+  visually-touching different-net copper at any zoomed region checked.
+- Zoomed crops (2-3x) on the highest-risk areas: J1/J2 (CM4 connector,
+  finest pitch, most routing), U3 (BQ25792 QFN), U7 (USB hub QFN) +
+  Y1 crystal, J11 (SIM tray), J13/USB_BOOT. No silkscreen text sitting
+  on copper/pads, no courtyard overlaps found.
+- Two things that looked like defects at first glance and were checked
+  down to ground truth instead of assumed: (1) "FC"/"GNSS"/"ELRS"/"TOF"
+  each appear twice near J5-J8 — confirmed this is a deliberate
+  horizontal+vertical dual-orientation label convention applied
+  consistently to every connector (BATT, DOCK, etc.), not a duplicate-
+  text bug. (2) J11 pin 2 has no visible trace stub in the render —
+  checked via `pcbnew` pad net query: it's GND, directly zone-connected
+  with no stub to draw, not an unconnected pin (all 6 J11 pins carry
+  real nets).
+- Rendering process itself needed `--exclude-drawing-sheet` (see above)
+  and `--page-size-mode 2`; without both, exports include page-frame
+  artifacts that look like real silkscreen defects on first view — worth
+  knowing for any future re-render.
+
+No new defects found by this visual pass; it corroborates rather than
+just repeats the DRC-only conclusion above. Render PNGs kept in
+`verification/visual_audit_2026-09-28/` for anyone who wants to check
+this independently without re-running kicad-cli.
+
 ---
 
 # AUTONOMOUS MISSION STATE — SKYWARD-COMPUTE-CARRIER (Maverick 1000)
