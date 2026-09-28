@@ -1,0 +1,3 @@
+design_data.py pin-net assignments: 469
+KiCad netlist pin-net assignments:   716
+MISMATCHES: 0

@@ -1,0 +1,7 @@
+Nets checked: 347
+
+Driver conflicts (>=2 strict-output pins on one net): 0
+
+Fully floating inputs (single-node net, input-type pin): 0
+
+Note: this is an ERC-EQUIVALENT check derived from a flat netlist export, not real KiCad ERC (no ERC engine is reachable in this environment -- see docs/ERC_STATUS.md). It covers driver conflicts and fully-floating inputs only.

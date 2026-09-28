@@ -1,0 +1,15 @@
+** Drc report for /home/user/Schematics/Maverick1000/kicad/SKYWARD-COMPUTE-CARRIER/SKYWARD-COMPUTE-CARRIER.kicad_pcb **
+** Re-verified 2026-09-28 with a real KiCad 7.0.11 install (kicad-cli + python3-pcbnew), independent of any prior session's tooling. **
+
+** Found 2 DRC violations **
+** Found 0 unconnected pads **
+** Found 0 Footprint errors **
+
+Category breakdown:
+     2  lib_footprint_mismatch (J1/J2 vs. SKYWARD_Custom library — documented, deliberate, see docs/DF40C_FOOTPRINT_VERIFICATION.md)
+
+Electrical routing: 100% complete (0/469 connections unconnected).
+Netlist cross-check (design_data.py vs. real KiCad netlist export): 0 mismatches, 469/469 pin-net assignments verified.
+ERC-equivalent check (driver conflicts + fully-floating inputs, derived from real netlist export): 0 issues found across 347 nets.
+validate.py (schematic/PCB parity): 118 components, 100 nets, 469 connections, 0 errors.
+Manufacturing drill files cross-checked against live board query: 478 PTH vias + 26 THT pad holes = 504 (matches PTH.drl), 4 NPTH (mounting holes), 20 F.Cu-In1.Cu + 21 In1.Cu-In2.Cu + 7 In2.Cu-B.Cu microvias (matches front-in1.drl/in1-in2.drl/in2-back.drl exactly).

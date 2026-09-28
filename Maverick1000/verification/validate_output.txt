@@ -1,0 +1,3 @@
+Components: 118   Nets: 100   Connections: 469
+
+No errors.

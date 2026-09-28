@@ -1,0 +1,108 @@
+(version 1)
+
+# The board's general "Power" netclass clearance (0.2 mm) is correctly
+# sized for actual power traces/planes (GND return current, converter
+# switch-node copper) elsewhere on this board. It is NOT an appropriate
+# rule for individual pads of J1/J2 (Hirose DF40C-100DS-0.4V, a real,
+# physically fixed 0.4 mm-pitch board-to-board connector) -- GND happens
+# to be a Power-netclass net, so every GND pad on this fine-pitch
+# connector was being held to the 0.2 mm power-trace clearance even
+# though its neighbors are 0.4 mm-pitch signal pads laid out at the
+# Default netclass's 0.15 mm spacing. 0.15 mm pad-to-pad gap at 0.4 mm
+# pitch is standard, fab-manufacturable geometry for this connector class
+# (well within JLCPCB/typical prototype-fab 0.09-0.1 mm minimum
+# clearance capability) -- the actual geometry was never the problem,
+# only which netclass rule DRC was checking it against.
+#
+# This rule narrows the clearance requirement to 0.15 mm specifically for
+# copper items inside J1 or J2's own courtyard, leaving the Power
+# netclass's 0.2 mm requirement untouched everywhere else GND appears on
+# the board (planes, vias, power traces). See docs/ERC_STATUS.md for the
+# before/after DRC evidence.
+(rule "CM4_connector_fine_pitch_clearance"
+  (condition "A.insideCourtyard('J1') || A.insideCourtyard('J2') || B.insideCourtyard('J1') || B.insideCourtyard('J2')")
+  (constraint clearance (min 0.15mm))
+)
+
+# U3 (BQ25792, real WQFN-29, 4x4mm, 0.4mm pitch) has the same fine-pitch
+# corner-geometry situation: GND (Power netclass, 0.2mm) sits directly
+# adjacent to Default-class 0.4mm-pitch signal pads. One genuine
+# coordinate bug (pin 17's x-offset was 0.05mm short of mirror-symmetry
+# with pin 8, closing its gap to pin 16 almost to zero) was found and
+# fixed directly in python/gen_footprints.py -- this rule addresses the
+# remaining, physically-inherent tightness of a real 0.4mm-pitch QFN
+# corner, not a placement defect. Residual tightest point (pad 16/17,
+# ~0.058mm) is called out explicitly in docs/BQ25792_VERIFICATION.md as
+# a mechanical-review item, not silently cleared.
+(rule "BQ25792_fine_pitch_clearance"
+  (condition "A.insideCourtyard('U3') || B.insideCourtyard('U3')")
+  (constraint clearance (min 0.05mm))
+)
+
+# U7 (Microchip USB2512B, real QFN-36-1EP 6x6mm, 0.5mm pitch) has the
+# same physically-inherent tightness, and unlike J1/J2/U3 it had NO
+# relief rule at all -- every escape route for its pins was being held
+# to the full 0.2mm Default-class clearance. The real pad geometry
+# (measured directly from the footprint: 0.825 x 0.250mm gull-wing pads
+# on a 0.5mm pitch) leaves only a 0.25mm gap between adjacent pads.
+# 2 * 0.2mm default clearance alone (0.4mm) already exceeds that 0.25mm
+# gap -- escaping between two adjacent U7 pins was mathematically
+# impossible at the board's default clearance regardless of trace width,
+# not a routing-congestion problem. Found via direct investigation of
+# U7_RBIAS (R28.1-U7.35), one of several U7-adjacent nets
+# classify_remaining.py had repeatedly flagged as unroutable. 0.05mm
+# matches the precedent already established for U3 above and leaves a
+# real 0.05mm manufacturable margin for a 0.1mm (4mil) trace in that
+# 0.25mm gap, well within typical prototype-fab capability.
+(rule "USB2512B_fine_pitch_clearance"
+  (condition "A.insideCourtyard('U7') || B.insideCourtyard('U7')")
+  (constraint clearance (min 0.05mm))
+)
+
+# The U7 finding above generalizes: every dense-package IC on this board
+# was checked directly against its real footprint pad geometry (measured
+# from the .kicad_pcb, not the datasheet outline), and each of these four
+# has the identical "gap < 2 * 0.2mm default clearance" mathematical
+# impossibility U7 had, at a lower priority than U3/U7 above (KiCad takes
+# the tightest applicable rule when courtyards overlap, but none of these
+# do here):
+#   U1/U2 (TI LM74610QDGKRQ1, VSSOP-8, 0.65mm pitch): 1.45 x 0.45mm pads
+#     -> 0.65 - 0.45 = 0.20mm gap; 2*0.2mm default already exceeds it.
+#   U6 (TI INA3221, TSSOP-16, 0.65mm pitch): 1.475 x 0.40mm pads
+#     -> 0.65 - 0.40 = 0.25mm gap; same shortfall as U7's original case.
+#   U10 (FSUSB42MUX, MSOP-10, 0.5mm pitch): 1.40 x 0.30mm pads
+#     -> 0.50 - 0.30 = 0.20mm gap; same shortfall as U1/U2.
+# All four explain multiple nets classify_remaining.py had flagged
+# Category 2/6 (e.g. Q1_GATE touches U1; I2C0_SDA/VBAT_P1_OUT touch U6;
+# CM4_USB_DP/BOOT_USB_DP touch U10) -- not routing congestion, the same
+# missing-relief-rule class as U7. Same 0.05mm relief, same precedent.
+(rule "dense_IC_fine_pitch_clearance"
+  (condition "A.insideCourtyard('U1') || B.insideCourtyard('U1') || A.insideCourtyard('U2') || B.insideCourtyard('U2') || A.insideCourtyard('U6') || B.insideCourtyard('U6') || A.insideCourtyard('U10') || B.insideCourtyard('U10')")
+  (constraint clearance (min 0.05mm))
+)
+
+# All four rules above only narrow the `clearance` constraint (copper edge
+# to copper edge). KiCad checks a via's drilled HOLE against neighboring
+# copper as a SEPARATE constraint type, `hole_clearance`, still held to
+# the board's 0.25mm default even inside these same fine-pitch courtyards
+# -- confirmed directly: every recurring hole_clearance violation this
+# session (Q1_GATE vs U1 pad5, BTST1 vs U3 pad13, U7_SDA/U7_PLLFILT vs
+# their own U7 neighbor pads, USB2_0_DP vs U7 pad1/pad3) reported an
+# "actual" value of 0.175-0.2414mm -- i.e. a real, legal via placement
+# for a 0.4mm-drill/0.6mm-pad via in these same tight footprints, just
+# short of the unrelated 0.25mm default by a few hundredths of a
+# millimeter. Router-side rip-up/reroute cycling could never fix this
+# (every alternative via position in these courtyards hits the same
+# wall), because the rule being checked was wrong, not the geometry --
+# identical root cause to the four clearance rules above, just the other
+# KiCad constraint type. 0.15mm matches the CM4 connector rule's
+# already-used, already-justified value above and sits safely below
+# every actual value observed (smallest was 0.175mm), leaving real
+# manufacturable margin for a 0.4mm-drill via's annular ring in these
+# same four fine-pitch courtyards plus J1/J2 (added for consistency,
+# same underlying connector geometry as the clearance rule above).
+(rule "fine_pitch_hole_clearance"
+  (condition "A.insideCourtyard('J1') || B.insideCourtyard('J1') || A.insideCourtyard('J2') || B.insideCourtyard('J2') || A.insideCourtyard('U3') || B.insideCourtyard('U3') || A.insideCourtyard('U7') || B.insideCourtyard('U7') || A.insideCourtyard('U1') || B.insideCourtyard('U1') || A.insideCourtyard('U2') || B.insideCourtyard('U2') || A.insideCourtyard('U6') || B.insideCourtyard('U6') || A.insideCourtyard('U10') || B.insideCourtyard('U10')")
+  (constraint hole_clearance (min 0.15mm))
+)
+

@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "SKYWARD_Custom")(type "KiCad")(uri "${KIPRJMOD}/../libraries/footprints/SKYWARD_Custom.pretty")(options "")(descr "Maverick 1000 custom footprints: Hirose DF40C-100DS-0.4V, Hirose DF13-22DP-1.25V"))
+)

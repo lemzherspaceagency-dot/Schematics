@@ -1,0 +1,16 @@
+** Drc report for /home/user/Schematics/Maverick1000/kicad/SKYWARD-COMPUTE-CARRIER/SKYWARD-COMPUTE-CARRIER.kicad_pcb **
+** Created on 2026-09-28 12:10:38 **
+
+** Found 2 DRC violations **
+[lib_footprint_mismatch]: Footprint 'Hirose_DF40C-100DS-0.4V' does not match copy in library 'SKYWARD_Custom'.
+    Local override; Severity: warning
+    @(75.0000 mm, 12.0000 mm): Footprint J2
+[lib_footprint_mismatch]: Footprint 'Hirose_DF40C-100DS-0.4V' does not match copy in library 'SKYWARD_Custom'.
+    Local override; Severity: warning
+    @(35.0000 mm, 12.0000 mm): Footprint J1
+
+** Found 0 unconnected pads **
+
+** Found 0 Footprint errors **
+
+** End of Report **
