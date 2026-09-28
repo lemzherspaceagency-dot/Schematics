@@ -7109,7 +7109,7 @@
     (stroke (width 0.15) (type default)) (layer "Edge.Cuts") (tstamp b57cd0c2-9e3a-4cbe-8ed2-c6423873d5ef))
   (gr_line (start 0 0) (end 110 0)
     (stroke (width 0.15) (type default)) (layer "Edge.Cuts") (tstamp dfaec38b-157e-407c-a2fe-874ec2be93fb))
-  (gr_text "FRONTIER INDUSTRIES" (at 55 3) (layer "F.SilkS") (tstamp 0c1f6ecb-b9e7-4604-9c47-87a3696f4f09)
+  (gr_text "FRONTIER INNOVATIONS" (at 55 3) (layer "F.SilkS") (tstamp 0c1f6ecb-b9e7-4604-9c47-87a3696f4f09)
     (effects (font (size 1.6 1.6) (thickness 0.15) bold))
   )
   (gr_text "BATT" (at 10 51) (layer "F.SilkS") (tstamp 1c6e6b12-3f82-463e-87f3-feca109083b7)

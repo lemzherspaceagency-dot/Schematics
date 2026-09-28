@@ -1,6 +1,6 @@
 # Maverick 1000 — SKYWARD-COMPUTE-CARRIER
 
-**Frontier Industries** | Internal codename: **SKYWARD** | Product: **Maverick 1000**
+**Frontier Innovations** | Internal codename: **SKYWARD** | Product: **Maverick 1000**
 **Board:** SKYWARD-COMPUTE-CARRIER, **Rev A**, fabrication-readiness completion pass 2026-09-24
 
 This is the main avionics/compute PCB for the Maverick 1000 autonomous

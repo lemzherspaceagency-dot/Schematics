@@ -6,7 +6,7 @@
     (sheet (number "1") (name "/") (tstamps "/")
       (title_block
         (title "SKYWARD-COMPUTE-CARRIER -- Maverick 1000 Main Avionics/Compute Board")
-        (company "Frontier Robotics")
+        (company "Frontier Innovations")
         (rev "A")
         (date "2026-09-21")
         (source "SKYWARD-COMPUTE-CARRIER.kicad_sch")

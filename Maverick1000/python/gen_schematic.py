@@ -278,7 +278,7 @@ title_text = (
     '    (title "SKYWARD-COMPUTE-CARRIER -- Maverick 1000 Main Avionics/Compute Board")\n'
     '    (date "2026-09-21")\n'
     '    (rev "A")\n'
-    '    (company "Frontier Industries")\n'
+    '    (company "Frontier Innovations")\n'
     '    (comment 1 "Internal codename: SKYWARD. Product: Maverick 1000.")\n'
     '    (comment 2 "See docs/assumptions.md before fabrication -- CM4 pinout and DF40C footprint need datasheet verification.")\n'
     '  )\n'

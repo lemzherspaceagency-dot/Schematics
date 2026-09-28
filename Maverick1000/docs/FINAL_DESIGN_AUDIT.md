@@ -554,7 +554,7 @@ alongside this pass's completion report.
 
 ## 1. Board overview
 
-**SKYWARD-COMPUTE-CARRIER** ("Maverick 1000") is Frontier Industries'
+**SKYWARD-COMPUTE-CARRIER** ("Maverick 1000") is Frontier Innovations'
 avionics/compute carrier board for a ≤250 g autonomous aerial platform. It
 carries a Raspberry Pi CM4 (compute), interfaces to an external flight
 controller, GNSS receiver, ELRS receiver, and ToF sensor, hosts a

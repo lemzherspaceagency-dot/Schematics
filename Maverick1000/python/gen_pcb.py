@@ -221,7 +221,7 @@ def main():
         board.Add(t)
         return t
 
-    add_text("FRONTIER ROBOTICS", BOARD_W / 2, 3.0, 1.6, bold=True)
+    add_text("FRONTIER INNOVATIONS", BOARD_W / 2, 3.0, 1.6, bold=True)
     add_text("MAVERICK 1000  --  SKYWARD-COMPUTE-CARRIER  --  REV A", BOARD_W / 2, 6.0, 1.0)
     # Zone-label positions below were nudged this pass to clear real DRC
     # silk_overlap/silk_over_copper findings against nearby component

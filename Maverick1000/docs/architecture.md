@@ -1,7 +1,7 @@
 # Maverick 1000 — SKYWARD-COMPUTE-CARRIER
 ## System Architecture — Rev A
 
-**Company:** Frontier Industries
+**Company:** Frontier Innovations
 **Product:** Maverick 1000 (internal codename: SKYWARD)
 **Board:** SKYWARD-COMPUTE-CARRIER, Rev A
 **Date:** 2026-09-21

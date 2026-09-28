@@ -97,7 +97,7 @@ kicad_pro = {
     },
     "sheets": [[ROOT_UUID, ""]],
     "text_variables": {
-        "COMPANY": "Frontier Industries",
+        "COMPANY": "Frontier Innovations",
         "PRODUCT": "Maverick 1000",
         "CODENAME": "SKYWARD",
         "REVISION": "A",

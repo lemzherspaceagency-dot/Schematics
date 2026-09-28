@@ -8,7 +8,7 @@
     (title "SKYWARD-COMPUTE-CARRIER -- Maverick 1000 Main Avionics/Compute Board")
     (date "2026-09-21")
     (rev "A")
-    (company "Frontier Industries")
+    (company "Frontier Innovations")
     (comment 1 "Internal codename: SKYWARD. Product: Maverick 1000.")
     (comment 2 "See docs/assumptions.md before fabrication -- CM4 pinout and DF40C footprint need datasheet verification.")
   )
