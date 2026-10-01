@@ -32,4 +32,5 @@ var moving := false
 var held_pos := Vector2.ZERO
 var held_pop := 0.0
 var last_held := ""
+var stride := 0.0
 var bump := 0.0                    # little wobble when bumping into someone

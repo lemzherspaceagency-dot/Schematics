@@ -381,19 +381,22 @@ func _sync_stations(delta: float) -> void:
 		node.scale = Vector3(1.0 + k, 1.0 - k, 1.0 + k)
 		match kind:
 			"S":
-				var pot: Node3D = node.get_node("pot")
-				var flames: Node3D = node.get_node("flames")
-				pot.visible = st != "idle"
-				flames.visible = st != "idle"
-				pot.position.y = 0.9 + (sin(t * 25.0) * 0.004 if st == "working" else 0.0)
-				if flames.visible:
-					for i in 8:
-						var f: Node3D = flames.get_node("flame%d" % i)
-						var fl := 0.8 + sin(t * 18.0 + i * 1.7) * 0.3
-						f.scale = Vector3(1, fl, 1)
+				var pot: Node3D = node.get_node_or_null("pot")
+				var flames: Node3D = node.get_node_or_null("flames")
+				if pot != null:
+					pot.visible = st != "idle"
+					pot.position.y = 0.9 + (sin(t * 25.0) * 0.004 if st == "working" else 0.0)
+				if flames != null:
+					flames.visible = st != "idle"
+					if flames.visible:
+						for i in 8:
+							var f: Node3D = flames.get_node_or_null("flame%d" % i)
+							if f != null:
+								f.scale = Vector3(1, 0.8 + sin(t * 18.0 + i * 1.7) * 0.3, 1)
 			"O":
-				var glow: Node3D = node.get_node("glow")
-				glow.visible = st != "idle" and st != "burnt"
+				var glow: Node3D = node.get_node_or_null("glow")
+				if glow != null:
+					glow.visible = st != "idle" and st != "burnt"
 			"C":
 				var slot: Node3D = node.get_node_or_null("slot_live")
 				if slot == null:

@@ -588,6 +588,10 @@ func _update_chef(ch: Chef, delta: float) -> void:
 	elif ch.vel.length() > 8.0:
 		ch.dir = Vector2i(0, int(signf(ch.vel.y)))
 	ch.walk += ch.vel.length() * delta * 0.11
+	ch.stride += ch.vel.length() * delta
+	if ch.stride > 74.0:
+		ch.stride = 0.0
+		sfx.play("step", 0.85 + randf() * 0.3)
 
 
 func _update_stations(delta: float) -> void:
@@ -838,7 +842,8 @@ func _serve(ch: Chef, cell: Vector2i) -> void:
 	cust["st"] = "happy"
 	cust["t"] = 0.0
 	var pos := _customer_pos(cell)
-	_snd("coin")
+	_snd("coin", 1.0 + 0.07 * minf(streak - 1, 8))
+	_fx_shake(2.0)
 	_fx_burst(pos + Vector2(0, 20), C_GOLD, 12, 170.0)
 	_fx_coinfly(pos + Vector2(0, 10), mini(8, 3 + total / 8))
 	_fx_popup(pos + Vector2(0, -40), "+%d" % total, C_GOLD, 36)

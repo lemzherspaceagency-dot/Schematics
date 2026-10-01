@@ -189,6 +189,22 @@ static func torus(inner: float, outer: float) -> TorusMesh:
 	return t
 
 
+# optional drop-in model: res://assets/<name>.glb (see assets/README.md)
+static func asset(asset_name: String) -> Node3D:
+	var p := "res://assets/%s.glb" % asset_name
+	if ResourceLoader.exists(p):
+		var ps = load(p)
+		if ps is PackedScene:
+			var inst := (ps as PackedScene).instantiate()
+			if inst is Node3D:
+				return inst
+	return null
+
+
+const ASSET_NAMES := {"X": "counter", "T": "table", "M": "crate_meat", "V": "crate_veg", "D": "crate_dough",
+	"C": "chop_board", "S": "stove", "O": "oven", "A": "plate_station", "B": "bin"}
+
+
 static func node(parent: Node, node_name: String, pos: Vector3 = Vector3.ZERO) -> Node3D:
 	var n := Node3D.new()
 	n.name = node_name
@@ -235,6 +251,11 @@ static func counter_base(parent: Node, top_hex: String = "d99a4a", body_hex: Str
 static func station(kind: String) -> Node3D:
 	var root := Node3D.new()
 	root.name = "station_" + kind
+	if ASSET_NAMES.has(kind):
+		var custom := asset(str(ASSET_NAMES[kind]))
+		if custom != null:
+			root.add_child(custom)
+			return root
 	match kind:
 		"X":
 			counter_base(root)
@@ -283,6 +304,10 @@ static func _table(root: Node3D) -> void:
 static func chair() -> Node3D:
 	var r := Node3D.new()
 	r.name = "chair"
+	var custom := asset("chair")
+	if custom != null:
+		r.add_child(custom)
+		return r
 	var wood := mat("b8402f", 0.6)
 	mi(r, rbox(Vector3(0.62, 0.09, 0.6), 0.04), wood, Vector3(0, 0.44, 0))
 	mi(r, rbox(Vector3(0.62, 0.5, 0.08), 0.04), wood, Vector3(0, 0.74, -0.28))
@@ -362,6 +387,10 @@ static func _oven(root: Node3D) -> void:
 static func item(id: String) -> Node3D:
 	var r := Node3D.new()
 	r.name = "item_" + id
+	var custom := asset("item_" + id)
+	if custom != null:
+		r.add_child(custom)
+		return r
 	match id:
 		"veg":
 			mi(r, sphere(0.15), mat("86c04a", 0.5), Vector3(0, 0.15, 0))
@@ -412,6 +441,10 @@ static func _plate(root: Node3D) -> void:
 static func dish(id: String) -> Node3D:
 	var r := Node3D.new()
 	r.name = "dish_" + id
+	var custom := asset("dish_" + id)
+	if custom != null:
+		r.add_child(custom)
+		return r
 	match id:
 		"salad":
 			_plate(r)

@@ -200,6 +200,13 @@ func _process(delta: float) -> void:
 		net.tick(delta)
 	if state == S.PLAY and intro <= 0.0 and banner_t > 0.0:
 		banner_t -= delta
+	var cooking := 0
+	if state == S.PLAY and intro <= 0.0:
+		for key in stations:
+			var s: Dictionary = stations[key]
+			if map[Vector2i(key).y][Vector2i(key).x] != "C" and (s["st"] == "working" or s["st"] == "done"):
+				cooking += 1
+	sfx.set_sizzle(clampf(cooking / 3.0, 0.0, 1.0), delta)
 	var show_view := _tilted()
 	view_container.visible = show_view
 	view_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if show_view else SubViewport.UPDATE_DISABLED

@@ -70,6 +70,12 @@ sitting on bar stools, wall lamps, shelves, plants and a dining table. Everythin
 - Faces are small SVG decals (`eyes_*`, `mouth_*` in `art/`), swapped for blinking and moods.
 - Change the camera in `kitchen_view.gd` (`cam_base`, `cam_target`, `fov`), the mood of the lighting in `_ready()` there.
 
+## Better art later: drop-in models
+Put CC0 `.glb` models in `assets/` (names in `assets/README.md`) and they replace the built-in primitive models automatically.
+
+## Sound
+All sounds are synthesised in `sfx.gd` (layered bells, wooden chops, soft footsteps, a looping pan sizzle that grows with how much is cooking, coin pitch that rises with your combo).
+
 ## Loading screen and splash
 There's no Godot logo: the boot splash is `art/splash.png`, and the game opens on its own loading screen with a real progress percentage
 (it preloads every sprite and builds the music), then waits for "tap to start" (which also unlocks audio in browsers).
