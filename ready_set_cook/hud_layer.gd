@@ -102,13 +102,16 @@ func _draw_hud() -> void:
 		_ctext(tut, Vector2(500, 632), 22, Color.WHITE)
 	# recipe cheat-sheet along the bottom
 	var recs: Array = g.lv["recipes"]
+	draw_rect(Rect2(0, 664, W, 56), Color("2f8fe0"))
+	draw_rect(Rect2(0, 664, W, 4), Color("8fd0ff"))
+	draw_rect(Rect2(0, 716, W, 4), Color("1d62ad"))
 	for k in recs.size():
 		var id: String = recs[k]
-		var rx := 14.0 + k * 178.0
+		var rx := 14.0 + k * 200.0
 		var ry := 668.0
-		_nine("panel", Rect2(rx, ry, 172, 46), Color("5a4a7a"), 36.0, 36.0, 36.0)
-		_draw_dish(id, Vector2(rx + 26, ry + 23), 11)
-		_ingredient_icons(id, Vector2(rx + 70, ry + 23), 9, 34)
+		_nine("panel", Rect2(rx, ry, 192, 48), Color("1d62ad"), 36.0, 36.0, 36.0)
+		_draw_dish(id, Vector2(rx + 28, ry + 24), 14)
+		_ingredient_icons(id, Vector2(rx + 78, ry + 24), 9, 34)
 
 
 func _draw_intro() -> void:

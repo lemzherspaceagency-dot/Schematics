@@ -13,7 +13,7 @@ var cam: Camera3D
 var sun: DirectionalLight3D
 var level_root: Node3D
 var dyn_root: Node3D
-const CHAR := 0.8                  # chefs and customers are small next to the half-size kitchen
+const CHAR := 0.74                 # chefs and customers are small next to the half-size kitchen
 var canvas_scale := 1.0              # canvas px per viewport px
 var station_nodes := {}              # Vector2i -> Node3D
 var plate_nodes := {}                # Vector2i -> {node, key}
@@ -28,8 +28,8 @@ var _blob_mat: StandardMaterial3D = null
 
 # camera: almost straight down with a little perspective, like the real game's view
 const CAM_FOV := 26.0
-const CAM_PITCH := 62.0
-const CAM_DIST := 21.5
+const CAM_PITCH := 74.0
+const CAM_DIST := 20.6
 const CAM_TARGET := Vector3(8.0, 0.0, 4.85)
 
 
@@ -139,7 +139,7 @@ func px_scale(px: Vector2) -> float:
 
 # per-world painted look: [kitchen floor kind, base, alt, dining floor kind, base, alt, wall base, wall mortar]
 const LOOKS := [
-	["tiles", "6f86a6", "566b8c", "planks", "a8703a", "8f5a2c", "3f8294", "21404b"],
+	["diamond", "5d78b4", "7e98cf", "planks", "a8703a", "8f5a2c", "3f8294", "21404b"],
 	["planks", "7a4a28", "5f3a1f", "carpet", "a63a3a", "7a2528", "b04a34", "4a1f18"],
 	["tiles", "a99373", "7d6248", "planks", "7a4a28", "5f3a1f", "3e7a62", "d9b34a"],
 ]

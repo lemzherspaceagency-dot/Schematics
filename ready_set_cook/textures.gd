@@ -95,6 +95,22 @@ static func make(kind: String, base: Color, alt: Color, v: int) -> ImageTexture:
 					if n.get_noise_2d(x * 2.4 + 500.0, y * 2.4) > 0.6:
 						k *= 0.82
 					img.set_pixel(x, y, _shade(c, k))
+		"diamond":
+			# one diamond per tile: the corners of 4 neighbours join into the second colour
+			for y in S:
+				for x in S:
+					var dx := absf(float(x) + 0.5 - 64.0) / 64.0
+					var dy := absf(float(y) + 0.5 - 64.0) / 64.0
+					var d := dx + dy
+					var c := base if d < 1.0 else alt
+					var edge := absf(d - 1.0) * 64.0
+					var m := 0.5 + 0.5 * n.get_noise_2d(x * 1.2, y * 1.2)
+					var k := 0.9 + 0.16 * m
+					if edge < 2.0:
+						k *= 0.55 + edge * 0.2
+					if n.get_noise_2d(x * 2.4 + 500.0, y * 2.4) > 0.62:
+						k *= 0.9
+					img.set_pixel(x, y, _shade(c, k))
 		"bricks":
 			for y in S:
 				var row := y / 21

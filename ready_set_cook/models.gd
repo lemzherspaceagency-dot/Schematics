@@ -540,7 +540,7 @@ static func _hex(list: Array, idx: int) -> String:
 # A chef. Children worth animating: body, head, arm_l, arm_r, foot_l, foot_r, held (anchor above the head)
 static func chef(look: Dictionary) -> Node3D:
 	_clean = true
-	var r := _kay_chef(look)
+	var r: Node3D = _kay_chef(look) if USE_KAY else null
 	if r == null:
 		r = _chef(look)
 	_clean = false
@@ -548,6 +548,7 @@ static func chef(look: Dictionary) -> Node3D:
 
 
 # ---- rigged chefs: KayKit Adventurers (CC0) + the Rig_Medium animation set ----
+const USE_KAY := false   # the rigged KayKit chefs are in assets/chars; off because the procedural chibi chefs read better from above
 const CHAR_FILES := ["Knight", "Barbarian", "Mage", "Ranger", "Rogue", "Rogue_Hooded"]
 const KAY_HIDE := ["Helmet", "HelmetVisor", "Cape", "Hat", "BearHat", "Quiver", "Mask"]
 const KAY_SCALE := 0.63          # head centre ends up at y = 1.1 like the old procedural chef
