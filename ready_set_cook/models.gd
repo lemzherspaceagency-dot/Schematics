@@ -6,6 +6,22 @@ extends RefCounted
 static var _mats := {}
 static var _meshes := {}
 static var _tex := {}
+static var _outline: ShaderMaterial = null
+
+
+static func outline() -> ShaderMaterial:
+	if _outline == null:
+		_outline = ShaderMaterial.new()
+		_outline.shader = load("res://outline.gdshader")
+	return _outline
+
+
+static func _paint(m: StandardMaterial3D, scale: float = 3.0) -> void:
+	m.detail_enabled = true
+	m.detail_albedo = Textures.grunge()
+	m.detail_blend_mode = BaseMaterial3D.BLEND_MODE_MUL
+	m.detail_uv_layer = BaseMaterial3D.DETAIL_UV_1
+	m.uv1_scale = Vector3(1, 1, 1)
 
 
 # ---------------------------------------------------------------- materials & meshes
@@ -22,7 +38,23 @@ static func mat(hex: String, rough: float = 0.55, metal: float = 0.0, emit: floa
 		m.emission_enabled = true
 		m.emission = Color(hex)
 		m.emission_energy_multiplier = emit
+	else:
+		_paint(m)
+		m.next_pass = outline()
 	_mats[key] = m
+	return m
+
+
+static func img_mat(tex: Texture2D, key: String, tint: Color = Color.WHITE, rough: float = 0.85) -> StandardMaterial3D:
+	var k := "i_%s_%s" % [key, tint.to_html()]
+	if _mats.has(k):
+		return _mats[k]
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = tex
+	m.albedo_color = tint
+	m.roughness = rough
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	_mats[k] = m
 	return m
 
 
@@ -189,12 +221,12 @@ static func decal(parent: Node, tex_name: String, width: float, pos: Vector3, na
 # Kitchen stations
 # ====================================================================
 
-const WOOD := "c68b4e"
-const WOOD_DARK := "a96f3d"
-const WOOD_LIGHT := "e8c79a"
+const WOOD := "b57a3e"
+const WOOD_DARK := "93582a"
+const WOOD_LIGHT := "d9b57e"
 
 
-static func counter_base(parent: Node, top_hex: String = "e0a85f", body_hex: String = WOOD_DARK, h: float = 0.8) -> void:
+static func counter_base(parent: Node, top_hex: String = "d99a4a", body_hex: String = WOOD_DARK, h: float = 0.8) -> void:
 	mi(parent, rbox(Vector3(0.96, h, 0.96), 0.07), mat(body_hex, 0.7), Vector3(0, h / 2.0, 0))
 	mi(parent, rbox(Vector3(1.0, 0.1, 1.0), 0.04), mat(top_hex, 0.45), Vector3(0, h + 0.03, 0))
 	mi(parent, rbox(Vector3(0.9, 0.04, 0.02), 0.01), mat("8a5528", 0.8), Vector3(0, h * 0.5, 0.485))
@@ -293,7 +325,7 @@ static func _stove(root: Node3D) -> void:
 static func _oven(root: Node3D) -> void:
 	mi(root, rbox(Vector3(0.96, 1.05, 0.9), 0.08), mat("c3c9d6", 0.3, 0.5), Vector3(0, 0.525, -0.02))
 	mi(root, rbox(Vector3(0.64, 0.46, 0.04), 0.03), mat("23242e", 0.15, 0.2), Vector3(0, 0.46, 0.44))
-	var glow := mi(root, rbox(Vector3(0.58, 0.4, 0.03), 0.02), mat("ff8a22", 0.4, 0.0, 2.0), Vector3(0, 0.46, 0.452))
+	var glow := mi(root, rbox(Vector3(0.58, 0.4, 0.03), 0.02), mat("e86a1a", 0.4, 0.0, 1.6), Vector3(0, 0.46, 0.452))
 	glow.name = "glow"
 	glow.visible = false
 	mi(root, cyl(0.025, 0.025, 0.66), mat("eef0f6", 0.2, 0.9), Vector3(0, 0.78, 0.5), Vector3(0, 0, 90))

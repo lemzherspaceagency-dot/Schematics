@@ -28,18 +28,21 @@ func _ready() -> void:
 	var env := WorldEnvironment.new()
 	var e := Environment.new()
 	e.background_mode = Environment.BG_COLOR
-	e.background_color = Color("2a2540")
+	e.background_color = Color("14111c")
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color(0.95, 0.95, 1.0)
-	e.ambient_light_energy = 0.42
+	e.ambient_light_color = Color(0.62, 0.66, 0.82)
+	e.ambient_light_energy = 0.5
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	e.tonemap_exposure = 0.72
+	e.tonemap_exposure = 0.78
+	e.adjustment_enabled = true
+	e.adjustment_contrast = 1.18
+	e.adjustment_saturation = 0.96
 	env.environment = e
 	add_child(env)
 	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-62, -32, 0)
-	sun.light_energy = 0.78
-	sun.light_color = Color(1.0, 0.95, 0.86)
+	sun.light_energy = 0.95
+	sun.light_color = Color(1.0, 0.86, 0.68)
 	sun.shadow_enabled = true
 	sun.shadow_blur = 1.6
 	sun.shadow_bias = 0.04
@@ -47,16 +50,16 @@ func _ready() -> void:
 	add_child(sun)
 	var fill := DirectionalLight3D.new()
 	fill.rotation_degrees = Vector3(-35, 150, 0)
-	fill.light_energy = 0.18
+	fill.light_energy = 0.12
 	fill.light_color = Color(0.7, 0.8, 1.0)
 	add_child(fill)
 	cam = Camera3D.new()
-	cam.fov = 38.0
+	cam.fov = 35.0
 	cam.near = 0.5
 	cam.far = 80.0
 	add_child(cam)
-	cam_target = Vector3(10.0, 0.0, 5.7)
-	cam_base = Vector3(10.0, 14.2, 13.6)
+	cam_target = Vector3(10.0, 0.0, 5.5)
+	cam_base = Vector3(10.0, 13.6, 13.0)
 	cam.look_at_from_position(cam_base, cam_target, Vector3.UP)
 	level_root = Node3D.new()
 	level_root.name = "level"
@@ -118,13 +121,31 @@ func px_scale(px: Vector2) -> float:
 
 # ---------------------------------------------------------------- building a level
 
+# per-world painted look: [kitchen floor kind, base, alt, dining floor kind, base, alt, wall base, wall mortar]
+const LOOKS := [
+	["tiles", "6f86a6", "566b8c", "planks", "a8703a", "8f5a2c", "3f8294", "21404b"],
+	["planks", "7a4a28", "5f3a1f", "carpet", "a63a3a", "7a2528", "b04a34", "4a1f18"],
+	["tiles", "b79a74", "8f6a4c", "planks", "7a4a28", "5f3a1f", "3e7a62", "d9b34a"],
+]
+
+
+func _floor_mat(world: int, dining: bool, checker: bool) -> StandardMaterial3D:
+	var L: Array = LOOKS[world]
+	var o := 3 if dining else 0
+	var kind: String = L[o]
+	var tex := Textures.make(kind, Color(str(L[o + 1])), Color(str(L[o + 2])), 0 if checker else 1)
+	return Models.img_mat(tex, "f_%d_%s_%s" % [world, dining, checker], Color(0.9, 0.9, 0.9), 0.8)
+
+
 func _wall_mat(world: int, h: float) -> StandardMaterial3D:
 	var key := "%d_%.1f" % [world, h]
 	if wall_mats.has(key):
 		return wall_mats[key]
-	var m := Models.tex_mat("wall_%d" % world, Color.WHITE, 0.85)
-	m = m.duplicate()
+	var L: Array = LOOKS[world]
+	var tex := Textures.make("bricks", Color(str(L[6])), Color(str(L[7])), world)
+	var m := Models.img_mat(tex, "w_%d" % world, Color(0.88, 0.88, 0.9), 0.9).duplicate()
 	m.uv1_scale = Vector3(1, h, 1)
+	m.uv1_triplanar = false
 	wall_mats[key] = m
 	return m
 
@@ -157,11 +178,7 @@ func build_level() -> void:
 				wall.name = "wall"
 				continue
 			var checker := (x + y) % 2 == 0
-			var tex_name := "floor_%d%s" % [world, "a" if checker else "b"]
-			if kind == "q":
-				tex_name = "carpet_%d%s" % [world, "a" if checker else "b"]
-			var tint := Color(0.86, 0.82, 0.74) if kind != "q" else Color(0.9, 0.9, 0.95)
-			var fl := Models.mi(level_root, plane, Models.tex_mat(tex_name, tint, 0.55), cpos)
+			var fl := Models.mi(level_root, plane, _floor_mat(world, kind == "q", checker), cpos)
 			fl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			if Data.RULES.has(kind) or Data.CRATES.has(kind) or kind in "XABT":
 				var st := Models.station(kind)

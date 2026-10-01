@@ -61,6 +61,8 @@ sitting on bar stools, wall lamps, shelves, plants and a dining table. Everythin
   simulation in `game_sim.gd`). Taps are turned into kitchen positions with a ray cast (`pick`), which prefers the visible top of a counter over the floor behind it.
 - `hud_layer.gd` draws everything flat on top: HUD, order bubbles, progress badges above machines, intro text, pause menu, the recipe book (`?` button), flying coins.
 - `stage_view.gd` is a second, transparent 3D layer behind the menu buttons that shows the same 3D chefs on the menu, players, customise screens and as avatars.
+- The painted look: every model gets an ink outline (`outline.gdshader`, an inflated back-face pass) and a grunge map multiplied into its colour; floors and walls use
+  planks / tiles / brick / carpet textures painted in code (`textures.gd`) with a per-world palette (`LOOKS` in `kitchen_view.gd`).
 - Faces are small SVG decals (`eyes_*`, `mouth_*` in `art/`), swapped for blinking and moods.
 - Change the camera in `kitchen_view.gd` (`cam_base`, `cam_target`, `fov`), the mood of the lighting in `_ready()` there.
 

@@ -20,9 +20,11 @@ func _ready() -> void:
 	e.background_mode = Environment.BG_CLEAR_COLOR
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color(0.95, 0.95, 1.0)
-	e.ambient_light_energy = 0.55
+	e.ambient_light_energy = 0.5
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	e.tonemap_exposure = 0.78
+	e.tonemap_exposure = 0.8
+	e.adjustment_enabled = true
+	e.adjustment_contrast = 1.12
 	env.environment = e
 	add_child(env)
 	var sun := DirectionalLight3D.new()

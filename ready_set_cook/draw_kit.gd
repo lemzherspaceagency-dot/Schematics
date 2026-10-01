@@ -429,7 +429,7 @@ func _draw_fx_lists(plist: Array, ulist: Array) -> void:
 
 
 func _draw_vignette() -> void:
-	var c0 := Color(0, 0, 0, 0.3)
+	var c0 := Color(0, 0, 0, 0.45)
 	var c1 := Color(0, 0, 0, 0)
 	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(W, 0), Vector2(W, 100), Vector2(0, 100)]), PackedColorArray([c0, c0, c1, c1]))
 	draw_polygon(PackedVector2Array([Vector2(0, H - 100), Vector2(W, H - 100), Vector2(W, H), Vector2(0, H)]), PackedColorArray([c1, c1, c0, c0]))
