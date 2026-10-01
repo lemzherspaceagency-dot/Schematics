@@ -30,6 +30,8 @@ var name_mode := "new"
 var name_target := ""
 var confirm_delete := ""
 var net: Node = null
+var hud: HudLayer = null
+var persp_mat: ShaderMaterial = null
 
 
 func _ready() -> void:
@@ -47,6 +49,13 @@ func _ready() -> void:
 	state = S.LOADING
 	fade = 0.0
 	coins_shown = float(_prof().get("coins", 0))
+	persp_mat = ShaderMaterial.new()
+	persp_mat.shader = load("res://persp.gdshader")
+	persp_mat.set_shader_parameter("strength", PERSP)
+	hud = HudLayer.new()
+	hud.g = self
+	hud.name = "Hud"
+	add_child(hud)
 	var NetLink = load("res://net.gd")
 	net = NetLink.new()
 	net.name = "Net"
@@ -117,7 +126,11 @@ func _process(delta: float) -> void:
 		_decay_pops(delta)
 	if net_mode != 0:
 		net.tick(delta)
+	if state == S.PLAY and intro <= 0.0 and banner_t > 0.0:
+		banner_t -= delta
+	material = persp_mat if _tilted() else null
 	queue_redraw()
+	hud.queue_redraw()
 
 
 func _anim_chefs(delta: float) -> void:
@@ -216,18 +229,20 @@ func _on_tap(p: Vector2) -> void:
 				sfx.music_player.play()
 			_goto(S.MENU)
 		return
-	for i in range(buttons.size() - 1, -1, -1):
-		var b: Dictionary = buttons[i]
+	var all_buttons: Array = buttons + hud.buttons
+	for i in range(all_buttons.size() - 1, -1, -1):
+		var b: Dictionary = all_buttons[i]
 		var r: Rect2 = b["rect"]
 		if r.has_point(p):
 			sfx.play("click")
 			_on_button(b["id"])
 			return
 	if state == S.PLAY and intro <= 0.0:
+		var wp := _unproject(p)
 		if net_mode == 2:
-			net.client_tap(p)
+			net.client_tap(wp)
 		else:
-			_on_game_tap(p)
+			_on_game_tap(wp)
 
 
 func _on_key(event: InputEventKey) -> void:
@@ -326,8 +341,13 @@ func _on_button(id: String) -> void:
 			sfx.set_enabled(acc.sound)
 			acc.save_all()
 		"pause":
+			show_recipes = false
+			state = S.PAUSE
+		"recipes":
+			show_recipes = true
 			state = S.PAUSE
 		"resume":
+			show_recipes = false
 			state = S.PLAY
 		"restart":
 			if net_mode != 2:
@@ -561,14 +581,9 @@ func _draw() -> void:
 			net.draw_screen()
 		S.PLAY, S.PAUSE:
 			_draw_game()
-			if state == S.PAUSE:
-				_draw_pause()
 		S.RESULT:
 			_draw_result()
 	_draw_particles()
-	_draw_vignette()
-	if fade > 0.0:
-		draw_rect(Rect2(-20, -20, W + 40, H + 40), Color(0.12, 0.07, 0.1, fade))
 
 
 func _draw_background() -> void:
@@ -1066,16 +1081,6 @@ func _draw_brief() -> void:
 		_button(Rect2(820, 628, 440, 80), "START!", "start", Color("ff6b3d"), 50)
 
 
-func _draw_pause() -> void:
-	draw_rect(Rect2(0, 0, W, H), Color(0.1, 0.05, 0.12, 0.72))
-	buttons = []
-	_ctext("PAUSED", Vector2(W / 2, 220), 110)
-	_button(Rect2(W / 2 - 190, 270, 380, 100), "RESUME", "resume", Color("ff6b3d"), 44)
-	if net_mode != 2:
-		_button(Rect2(W / 2 - 190, 400, 380, 84), "RESTART", "restart", Color("4c8bf5"), 32)
-	_button(Rect2(W / 2 - 190, 510, 380, 84), "QUIT", "levels", Color("8d99ae"), 32)
-
-
 # ====================================================================
 # Result
 # ====================================================================
@@ -1171,52 +1176,66 @@ func _draw_game() -> void:
 	_draw_kitchen()
 	_draw_customers()
 	_draw_chefs()
-	_draw_hud()
-	if intro > 0.0:
-		_draw_intro()
-	elif banner_t > 0.0:
-		if state == S.PLAY:
-			banner_t -= get_process_delta_time()
-		var k := _ease_back((1.4 - banner_t) / 0.35)
-		var a := clampf(banner_t * 2.0, 0.0, 1.0)
-		_xf_about(Vector2(W / 2, 360), k, k)
-		_ctext(banner, Vector2(W / 2, 360), 120, Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, a))
-		_xf_reset()
-
-
-func _draw_intro() -> void:
-	draw_rect(Rect2(0, 0, W, H), Color(0.1, 0.05, 0.12, 0.5))
-	var elapsed := 3.0 - intro
-	var idx := clampi(int(elapsed), 0, 2)
-	var texts := ["READY?", "SET...", "COOK!"]
-	var cols := [Color("ffffff"), C_GOLD, Color("ff5a36")]
-	var local := elapsed - float(idx)
-	var k := _ease_back(local / 0.4)
-	var out_a := clampf((1.0 - local) * 5.0, 0.0, 1.0)
-	var col: Color = cols[idx]
-	col.a = out_a
-	_xf_about(Vector2(W / 2, 340), k, k, sin(local * 6.0) * 0.05)
-	_ctext(texts[idx], Vector2(W / 2, 370), 170, col)
-	_xf_reset()
-	_ctext("%s  -  Level %d: %s" % [str(Data.WORLDS[world]["name"]), cur_level + 1, str(lv["name"])], Vector2(W / 2, 200), 36, Color(1, 1, 1, 0.95))
 
 
 func _draw_kitchen() -> void:
-	for x in Data.COLS:
-		_tile_spr("wall_%d" % world, Rect2(ORIGIN.x + x * TILE, ORIGIN.y - TILE, TILE, TILE))
+	# walls continue past the map so the tilted camera never shows a gap
+	for y in range(-4, Data.ROWS + 2):
+		for x in range(-6, Data.COLS + 6):
+			if x >= 0 and x < Data.COLS and y >= 0 and y < Data.ROWS:
+				continue
+			_tile_spr("wall_%d" % world, Rect2(ORIGIN + Vector2(x, y) * TILE, Vector2(TILE, TILE)))
+	# pass 1: floors, carpets, walls
 	for y in Data.ROWS:
 		for x in Data.COLS:
 			var kind: String = map[y][x]
-			var rect := Rect2(ORIGIN + Vector2(x, y) * TILE, Vector2(TILE, TILE))
-			_draw_tile(kind, rect, x, y)
-	_draw_wall_decor()
+			_draw_tile(kind, Rect2(ORIGIN + Vector2(x, y) * TILE, Vector2(TILE, TILE)), x, y, false)
+	_draw_depth()
+	# pass 2: everything standing on the floor, with soft cast shadows
+	for y in Data.ROWS:
+		for x in Data.COLS:
+			var kind2: String = map[y][x]
+			_draw_tile(kind2, Rect2(ORIGIN + Vector2(x, y) * TILE, Vector2(TILE, TILE)), x, y, true)
 	for key in stations:
 		var c: Vector2i = key
 		_draw_station_state(c, stations[c])
 	for key in plates:
 		var pc: Vector2i = key
 		_draw_plate(pc, plates[pc])
-	_spr("lamp_glow", Vector2(1056, 300), 7.0, 0.0, Color(1, 0.95, 0.8, 0.12 + sin(t_global * 2.0) * 0.01))
+	_draw_light()
+
+
+# ambient occlusion where walls meet the floor + visible wall faces (gives the room depth)
+func _draw_depth() -> void:
+	var z := Color(0, 0, 0, 0)
+	var dk := Color(0, 0, 0, 0.34)
+	var x0 := 64.0
+	var x1 := 1216.0
+	var yt := ORIGIN.y + TILE          # top of the floor
+	var yb := ORIGIN.y + 10 * TILE     # bottom wall
+	# faces of the walls you can "see": the top wall's front, the side walls' inner sides
+	draw_polygon(PackedVector2Array([Vector2(-400, yt - 14), Vector2(W + 400, yt - 14), Vector2(W + 400, yt), Vector2(-400, yt)]), PackedColorArray([z, z, dk, dk]))
+	draw_polygon(PackedVector2Array([Vector2(x0 - 16, yt), Vector2(x0, yt), Vector2(x0, yb), Vector2(x0 - 16, yb)]), PackedColorArray([z, dk, dk, z]))
+	draw_polygon(PackedVector2Array([Vector2(x1, yt), Vector2(x1 + 16, yt), Vector2(x1 + 16, yb), Vector2(x1, yb)]), PackedColorArray([dk, z, z, dk]))
+	# floor AO next to the walls
+	var ao := Color(0, 0, 0, 0.30)
+	draw_polygon(PackedVector2Array([Vector2(x0, yt), Vector2(x1, yt), Vector2(x1, yt + 34), Vector2(x0, yt + 34)]), PackedColorArray([ao, ao, z, z]))
+	draw_polygon(PackedVector2Array([Vector2(x0, yt), Vector2(x0 + 30, yt), Vector2(x0 + 30, yb), Vector2(x0, yb)]), PackedColorArray([ao, z, z, ao]))
+	draw_polygon(PackedVector2Array([Vector2(x1 - 30, yt), Vector2(x1, yt), Vector2(x1, yb), Vector2(x1 - 30, yb)]), PackedColorArray([z, ao, ao, z]))
+	draw_polygon(PackedVector2Array([Vector2(x0, yb - 30), Vector2(896, yb - 30), Vector2(896, yb), Vector2(x0, yb)]), PackedColorArray([z, z, ao, ao]))
+	# lit top edge of the bottom wall
+	draw_rect(Rect2(x0, yb, 832, 5), Color(1, 1, 1, 0.16))
+	# the counter between kitchen and dining room casts a shadow onto the carpet
+	draw_polygon(PackedVector2Array([Vector2(896, yt), Vector2(930, yt), Vector2(930, yb), Vector2(896, yb)]), PackedColorArray([ao, z, z, ao]))
+
+
+# warm light from the top left, a bit of dark bottom right
+func _draw_light() -> void:
+	var a := Color(1, 0.96, 0.85, 0.12)
+	var b := Color(1, 0.96, 0.85, 0.0)
+	var c := Color(0.1, 0.05, 0.2, 0.16)
+	var d := Color(0.1, 0.05, 0.2, 0.05)
+	draw_polygon(PackedVector2Array([Vector2(64, 80), Vector2(1216, 80), Vector2(1216, 656), Vector2(64, 656)]), PackedColorArray([a, b, c, d]))
 
 
 func _draw_wall_decor() -> void:
@@ -1237,20 +1256,20 @@ func _draw_plate(c: Vector2i, items: Array) -> void:
 			_draw_item(items[i], pc + Vector2(-16 + i * 16, -3 + (i % 2) * 8), 10)
 
 
-func _draw_tile(kind: String, rect: Rect2, x: int, y: int) -> void:
+func _draw_tile(kind: String, rect: Rect2, x: int, y: int, objects: bool) -> void:
 	var checker := (x + y) % 2 == 0
 	var fl := "floor_%d%s" % [world, "a" if checker else "b"]
-	match kind:
-		"#":
-			_tile_spr("wall_%d" % world, rect)
-			return
-		"q":
-			_tile_spr("carpet_%d%s" % [world, "a" if checker else "b"], rect)
-			return
-		".":
-			_tile_spr(fl, rect)
-			return
-	_tile_spr(fl, rect)
+	if not objects:
+		match kind:
+			"#":
+				_tile_spr("wall_%d" % world, rect)
+			"q":
+				_tile_spr("carpet_%d%s" % [world, "a" if checker else "b"], rect)
+			_:
+				_tile_spr(fl, rect)
+		return
+	if kind in "#q.":
+		return
 	var c := Vector2i(x, y)
 	var spr_name := ""
 	match kind:
@@ -1271,6 +1290,9 @@ func _draw_tile(kind: String, rect: Rect2, x: int, y: int) -> void:
 	if kind == "C" and stations.has(c) and stations[c]["st"] == "working":
 		jitter = sin(t_global * 45.0) * 1.6
 		k += absf(sin(t_global * 22.0)) * 0.025
+	# soft cast shadow (light comes from the top left)
+	for i in 3:
+		_rr(Rect2(rect.position + Vector2(10 + i * 3, 14 + i * 3), rect.size - Vector2(10, 12)).grow(i * 2), Color(0, 0, 0, 0.07), 16)
 	_xf_about(rect.position + Vector2(TILE / 2.0, TILE * 0.92), 1.0 + k, 1.0 - k)
 	_tile_spr(spr_name, Rect2(rect.position + Vector2(0, jitter), rect.size))
 	_xf_reset()
@@ -1432,53 +1454,3 @@ func _draw_customer(c: Dictionary) -> void:
 			_xf_reset()
 			if matches:
 				draw_arc(pos + Vector2(0, 30), 62 + sin(t_global * 8.0) * 3.0, 0, TAU, 32, Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, 0.85), 4.0)
-
-
-func _draw_hud() -> void:
-	var goals := _goals()
-	var nxt := int(goals[2])
-	for g in goals:
-		if earned < int(g):
-			nxt = int(g)
-			break
-	_nine("panel", Rect2(10, 8, 236, 58), C_DARK, 36.0, 36.0, 36.0)
-	_spr("coin", Vector2(42, 37), 0.95 * (1.0 + hud_bump * 0.3))
-	_txt("%d / %d" % [int(round(earned_shown)), nxt], Vector2(70, 48), 30, C_GOLD)
-	var gmax := float(goals[2])
-	var bar := Rect2(278, 28, 560, 16)
-	_bar(bar, earned_shown / gmax, C_GOLD)
-	for k in 3:
-		var sx := bar.position.x + bar.size.x * float(goals[k]) / gmax
-		if k == 2:
-			sx -= 12.0
-		var on := earned >= int(goals[k])
-		_star(Vector2(sx, 36), 17 + (3.0 * sin(t_global * 6.0) if on else 0.0), on)
-	if streak >= 2:
-		var pulse := 1.0 + 0.08 * sin(t_global * 10.0)
-		_xf_about(Vector2(890, 36), pulse, pulse)
-		_nine("panel", Rect2(850, 12, 80, 50), Color("ff7a3d"), 36.0, 36.0, 36.0)
-		_ctext("x%d" % streak, Vector2(890, 48), 30)
-		_xf_reset()
-	var secs := int(ceil(time_left))
-	var urgent := time_left < 20.0
-	var tcol := Color.WHITE if not urgent else (C_BAD if int(t_global * 4.0) % 2 == 0 else Color.WHITE)
-	var tsc := 1.0 + (sin(t_global * 8.0) * 0.05 if urgent else 0.0)
-	_nine("panel", Rect2(1000, 8, 180, 58), C_DARK, 36.0, 36.0, 36.0)
-	_spr("wall_clock", Vector2(1034, 37), 0.34, sin(t_global * 3.0) * 0.05 if urgent else 0.0)
-	_xf_about(Vector2(1110, 37), tsc, tsc)
-	_ctext("%d:%02d" % [secs / 60, secs % 60], Vector2(1112, 50), 34, tcol)
-	_xf_reset()
-	_button(Rect2(1198, 10, 68, 52), "II", "pause", Color("8d99ae"), 26)
-	var tut := _tutorial_text()
-	if tut != "" and intro <= 0.0:
-		_nine("panel", Rect2(200, 598, 600, 48), C_DARK, 36.0, 36.0, 36.0)
-		_ctext(tut, Vector2(500, 630), 22, Color.WHITE)
-	# recipe cheat-sheet along the bottom wall
-	var recs: Array = lv["recipes"]
-	for k in recs.size():
-		var id: String = recs[k]
-		var rx := 14.0 + k * 178.0
-		var ry := 668.0
-		_nine("panel", Rect2(rx, ry, 172, 46), Color("5a4a7a"), 36.0, 36.0, 36.0)
-		_draw_dish(id, Vector2(rx + 26, ry + 23), 11)
-		_ingredient_icons(id, Vector2(rx + 70, ry + 23), 9, 34)

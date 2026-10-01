@@ -30,6 +30,7 @@ var mouse_down := false
 var particles: Array = []
 var popups: Array = []
 var hud_bump := 0.0
+var coin_fx: Array = []             # screen-space coins flying to the HUD
 var shake := 0.0
 
 
@@ -326,13 +327,36 @@ func _popup(p: Vector2, text: String, col: Color, size: int) -> void:
 	popups.append({"p": p, "text": text, "life": 1.3, "col": col, "size": size})
 
 
+# world -> screen position (main.gd overrides this when the kitchen is tilted)
+func _project(p: Vector2) -> Vector2:
+	return p
+
+
 func _coin_fly(from: Vector2, to: Vector2, n: int) -> void:
+	var start := _project(from)
 	for i in n:
 		var a := randf() * TAU
-		particles.append({"p": from, "v": Vector2(cos(a), sin(a) - 1.0) * randf_range(90, 220), "g": 500.0, "life": 1.4, "max": 1.4, "col": Color.WHITE, "r": 8.0, "tex": "coin", "tgt": to, "age": 0.0})
+		coin_fx.append({"p": start, "v": Vector2(cos(a), sin(a) - 1.0) * randf_range(90, 220), "life": 1.4, "age": 0.0, "tgt": to})
 
 
 func _update_fx(delta: float) -> void:
+	for i in range(coin_fx.size() - 1, -1, -1):
+		var q: Dictionary = coin_fx[i]
+		q["life"] = float(q["life"]) - delta
+		q["age"] = float(q["age"]) + delta
+		if float(q["life"]) <= 0.0:
+			coin_fx.remove_at(i)
+			continue
+		if float(q["age"]) > 0.45:
+			q["p"] = Vector2(q["p"]).lerp(Vector2(q["tgt"]), 1.0 - exp(-9.0 * delta))
+			if Vector2(q["p"]).distance_to(Vector2(q["tgt"])) < 22.0:
+				hud_bump = 1.0
+				coin_fx.remove_at(i)
+		else:
+			var v0: Vector2 = q["v"]
+			v0.y += 500.0 * delta
+			q["v"] = v0
+			q["p"] = Vector2(q["p"]) + v0 * delta
 	for i in range(particles.size() - 1, -1, -1):
 		var q: Dictionary = particles[i]
 		q["life"] = float(q["life"]) - delta

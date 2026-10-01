@@ -54,6 +54,7 @@ var best_streak := 0
 var spawn_timer := 0.0
 var rush_shown := false
 var banner := ""
+var show_recipes := false
 var banner_t := 0.0
 var earned_shown := 0.0
 var coins_shown := 0.0
@@ -334,6 +335,30 @@ func _scheme_dir(ch: Chef) -> Vector2i:
 		else:
 			d.x = 0
 	return d
+
+
+# ---- the tilted camera (matches persp.gdshader) ----
+const PERSP := 0.2
+
+
+func _tilted() -> bool:
+	return state == S.PLAY or state == S.PAUSE
+
+
+func _project(p: Vector2) -> Vector2:
+	if not _tilted():
+		return p
+	var t := p.y / H
+	var k := 1.0 + PERSP * (1.0 - t)
+	var yy := (log(1.0 + PERSP) - log(k)) / log(1.0 + PERSP)
+	return Vector2(W * 0.5 + (p.x - W * 0.5) / k, yy * H)
+
+
+func _unproject(p: Vector2) -> Vector2:
+	var yy := p.y / H
+	var k := pow(1.0 + PERSP, 1.0 - yy)
+	var t := 1.0 - (k - 1.0) / PERSP
+	return Vector2(W * 0.5 + (p.x - W * 0.5) * k, t * H)
 
 
 func _cell_of(p: Vector2) -> Vector2i:
