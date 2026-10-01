@@ -5,6 +5,7 @@ W_TOP, W_BOT = "#ffffff", "#d8d8e0"
 
 
 def make(out):
+    faces(out)
     # ---- skin head (tintable) on a 112x120 canvas, head circle centre (56,68) r38
     s = S(112, 120)
     cx, cy = 56, 68
@@ -112,3 +113,64 @@ def make(out):
         s.circle(x, y, 4, c, OUT, 2)
     s.shine(24, 28, 5, 2, 0.7)
     out("vip_crown", s)
+
+
+def faces(out):
+    """Eyes (with blush) and mouths used as decals on the 3D heads. Eyes 256x128, mouths 128x64."""
+    INK = "#2a1a12"
+
+    def blush(s):
+        s.circle(36, 96, 17, "#ff5d7a", None, 0, 0.42)
+        s.circle(220, 96, 17, "#ff5d7a", None, 0, 0.42)
+
+    s = S(256, 128)    # open, round shiny eyes
+    blush(s)
+    for x in (76, 180):
+        s.ell(x, 58, 17, 24, s.grad("#3a2a22", "#120a06"), "#120a06", 2)
+        s.circle(x - 5, 48, 7, "#ffffff", None, 0)
+        s.circle(x + 6, 68, 3, "#ffffff", None, 0, 0.8)
+    out("eyes_open", s)
+    s = S(256, 128)    # blink
+    blush(s)
+    for x in (76, 180):
+        s.path("M%d 60 Q%d 74 %d 60" % (x - 20, x, x + 20), "none", INK, 7)
+    out("eyes_closed", s)
+    s = S(256, 128)    # happy ^ ^
+    blush(s)
+    for x in (76, 180):
+        s.path("M%d 70 Q%d 36 %d 70" % (x - 22, x, x + 22), "none", INK, 8)
+    out("eyes_happy", s)
+    s = S(256, 128)    # angry
+    blush(s)
+    for x in (76, 180):
+        s.ell(x, 66, 15, 19, s.grad("#3a2a22", "#120a06"), "#120a06", 2)
+        s.circle(x - 4, 58, 6, "#ffffff", None, 0)
+    s.line(48, 22, 100, 40, INK, 10)
+    s.line(208, 22, 156, 40, INK, 10)
+    out("eyes_angry", s)
+    s = S(256, 128)    # worried
+    blush(s)
+    for x in (76, 180):
+        s.ell(x, 62, 16, 22, s.grad("#3a2a22", "#120a06"), "#120a06", 2)
+        s.circle(x - 5, 52, 6, "#ffffff", None, 0)
+    s.line(48, 36, 100, 22, INK, 8)
+    s.line(208, 36, 156, 22, INK, 8)
+    out("eyes_worried", s)
+
+    s = S(128, 64)
+    s.path("M26 22 Q64 58 102 22", "none", INK, 7)
+    out("mouth_smile", s)
+    s = S(128, 64)     # big open grin
+    s.path("M22 14 Q64 14 106 14 Q100 58 64 58 Q28 58 22 14 Z", "#7a1f2b", INK, 6)
+    s.path("M40 50 Q64 36 88 50 Q76 58 64 58 Q52 58 40 50 Z", "#ff7a8a", None, 0)
+    s.path("M26 14 L102 14", "none", "#ffffff", 8)
+    out("mouth_grin", s)
+    s = S(128, 64)
+    s.line(36, 34, 92, 34, INK, 7)
+    out("mouth_flat", s)
+    s = S(128, 64)
+    s.path("M30 48 Q64 14 98 48", "none", INK, 7)
+    out("mouth_frown", s)
+    s = S(128, 64)     # little "o"
+    s.ell(64, 34, 14, 17, "#7a1f2b", INK, 5)
+    out("mouth_o", s)

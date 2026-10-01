@@ -313,6 +313,7 @@ func _draw_chef_look(look: Dictionary, c: Vector2, face: float, bob: float, scal
 # ---------------------------------------------------------------- fx
 
 func _burst(p: Vector2, col: Color, n: int, speed: float) -> void:
+	p = _project(p) + (Vector2(0, -34) if _tilted() else Vector2.ZERO)
 	for i in n:
 		var a := randf() * TAU
 		var v := Vector2(cos(a), sin(a)) * randf_range(0.3, 1.0) * speed
@@ -320,16 +321,22 @@ func _burst(p: Vector2, col: Color, n: int, speed: float) -> void:
 
 
 func _puff(p: Vector2, col: Color) -> void:
+	p = _project(p) + (Vector2(0, -50) if _tilted() else Vector2.ZERO)
 	particles.append({"p": p, "v": Vector2(randf_range(-10, 10), -50), "g": -10.0, "life": 0.9, "max": 0.9, "col": col, "r": randf_range(10, 16), "tex": "puff"})
 
 
 func _popup(p: Vector2, text: String, col: Color, size: int) -> void:
+	p = _project(p)
 	popups.append({"p": p, "text": text, "life": 1.3, "col": col, "size": size})
 
 
 # world -> screen position (main.gd overrides this when the kitchen is tilted)
 func _project(p: Vector2) -> Vector2:
 	return p
+
+
+func _tilted() -> bool:
+	return false
 
 
 func _coin_fly(from: Vector2, to: Vector2, n: int) -> void:
@@ -394,7 +401,11 @@ func _update_fx(delta: float) -> void:
 
 
 func _draw_particles() -> void:
-	for q in particles:
+	_draw_fx_lists(particles, popups)
+
+
+func _draw_fx_lists(plist: Array, ulist: Array) -> void:
+	for q in plist:
 		var a: float = float(q["life"]) / float(q["max"])
 		var col: Color = q["col"]
 		var kind: String = q["tex"]
@@ -405,12 +416,10 @@ func _draw_particles() -> void:
 		elif kind == "spark":
 			col.a = minf(1.0, a * 2.0)
 			_spr("spark", q["p"], r * (0.5 + a) / 9.0, float(q["life"]) * 6.0, col)
-		elif kind == "coin":
-			_spr("coin", q["p"], 0.5 * (0.8 + 0.2 * sin(float(q["life"]) * 20.0)), 0.0, Color.WHITE)
 		else:
 			col.a *= a
 			draw_circle(q["p"], r * (0.5 + a * 0.5), col)
-	for q in popups:
+	for q in ulist:
 		var a: float = clampf(float(q["life"]) * 2.0, 0.0, 1.0)
 		var col: Color = q["col"]
 		col.a = a

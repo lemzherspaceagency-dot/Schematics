@@ -31,7 +31,11 @@ var name_target := ""
 var confirm_delete := ""
 var net: Node = null
 var hud: HudLayer = null
-var persp_mat: ShaderMaterial = null
+var view_container: SubViewportContainer = null
+var view_vp: SubViewport = null
+var stage: StageView = null
+var stage_container: SubViewportContainer = null
+var stage_vp: SubViewport = null
 
 
 func _ready() -> void:
@@ -49,9 +53,7 @@ func _ready() -> void:
 	state = S.LOADING
 	fade = 0.0
 	coins_shown = float(_prof().get("coins", 0))
-	persp_mat = ShaderMaterial.new()
-	persp_mat.shader = load("res://persp.gdshader")
-	persp_mat.set_shader_parameter("strength", PERSP)
+	_make_view()
 	hud = HudLayer.new()
 	hud.g = self
 	hud.name = "Hud"
@@ -64,10 +66,80 @@ func _ready() -> void:
 
 
 # ====================================================================
+# The 3D view
+# ====================================================================
+
+func _make_view() -> void:
+	view_container = SubViewportContainer.new()
+	view_container.name = "View"
+	view_container.stretch = false
+	view_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	view_container.visible = false
+	view_vp = SubViewport.new()
+	view_vp.size = Vector2i(1280, 720)
+	view_vp.own_world_3d = true
+	view_vp.msaa_3d = Viewport.MSAA_2X
+	view_vp.handle_input_locally = false
+	view_vp.gui_disable_input = true
+	view_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	view_container.add_child(view_vp)
+	view = KitchenView.new()
+	view.g = self
+	view.vp = view_vp
+	view_vp.add_child(view)
+	add_child(view_container)
+	# transparent 3D layer for chefs shown on the menu screens
+	stage_container = SubViewportContainer.new()
+	stage_container.name = "Stage"
+	stage_container.stretch = false
+	stage_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage_vp = SubViewport.new()
+	stage_vp.size = Vector2i(1280, 720)
+	stage_vp.own_world_3d = true
+	stage_vp.transparent_bg = true
+	stage_vp.msaa_3d = Viewport.MSAA_2X
+	stage_vp.gui_disable_input = true
+	stage_container.add_child(stage_vp)
+	stage = StageView.new()
+	stage.vp = stage_vp
+	stage_vp.add_child(stage)
+	add_child(stage_container)
+
+
+# ask the 3D stage to show a full chef standing at feet_px (canvas px) / just a head+shoulders badge centred on c
+func _stage_chef(id: String, look: Dictionary, feet_px: Vector2, scale_f: float, anim: String = "idle", face: String = "happy") -> void:
+	stage.request(id, "chef", look, feet_px, scale_f, anim, face)
+
+
+func _stage_bust(id: String, look: Dictionary, c: Vector2, radius: float) -> void:
+	stage.request(id, "bust", look, c, radius / 90.0, "idle", "happy")
+
+
+func _draw_head_icon(look: Dictionary, c: Vector2, size: float) -> void:
+	draw_circle(c, size + 4, C_OUTLINE)
+	draw_circle(c, size, Color("9bd1ff"))
+	_stage_bust("bust_%d_%d" % [int(c.x), int(c.y)], look, c + Vector2(0, size * 0.1), size)
+
+
+func _fit_view() -> void:
+	var win := get_window().size
+	var sc := clampf(minf(float(win.x) / W, float(win.y) / H), 0.5, 1.5)
+	var want := Vector2i(int(W * sc), int(H * sc))
+	if view_vp.size != want:
+		view_vp.size = want
+	view_container.scale = Vector2(W / float(want.x), H / float(want.y))
+	if stage_vp.size != want:
+		stage_vp.size = want
+	stage_container.scale = view_container.scale
+	stage.canvas_scale = W / float(want.x)
+
+
+# ====================================================================
 # Net hooks
 # ====================================================================
 
 func _on_level_started() -> void:
+	view.build_level()
 	if net_mode == 1:
 		net.host_start_level()
 
@@ -128,7 +200,13 @@ func _process(delta: float) -> void:
 		net.tick(delta)
 	if state == S.PLAY and intro <= 0.0 and banner_t > 0.0:
 		banner_t -= delta
-	material = persp_mat if _tilted() else null
+	var show_view := _tilted()
+	view_container.visible = show_view
+	view_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if show_view else SubViewport.UPDATE_DISABLED
+	var show_stage := not show_view and state != S.NAME
+	stage_container.visible = show_stage
+	stage_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if show_stage else SubViewport.UPDATE_DISABLED
+	_fit_view()
 	queue_redraw()
 	hud.queue_redraw()
 
@@ -583,7 +661,8 @@ func _draw() -> void:
 			_draw_game()
 		S.RESULT:
 			_draw_result()
-	_draw_particles()
+	if not _tilted():
+		_draw_particles()
 
 
 func _draw_background() -> void:
@@ -634,9 +713,9 @@ func _draw_loading() -> void:
 		_tile_spr("wall_0", Rect2(x, gy + 88, 64, 64))
 	var look: Dictionary = _slot_look(0)
 	var runner := Vector2(W / 2 - 20, gy - 20 + sin(t_global * 14.0) * 3.0)
-	_draw_chef_look(look, runner, 1.0, 0.0, 1.5, 0.12, 0.0, t_global * 16.0, 0.9, 260.0, true)
+	_stage_chef("runner", look, Vector2(W / 2 - 20, gy + 12), 0.8, "run")
 	var dish: String = ["dish_burger", "dish_salad", "dish_steak", "dish_soup", "dish_stew"][int(t_global * 1.5) % 5]
-	_spr(dish, runner + Vector2(0, -122 + sin(t_global * 7.0) * 4.0), 1.5, sin(t_global * 5.0) * 0.1)
+	_spr(dish, runner + Vector2(0, -250 + sin(t_global * 7.0) * 4.0), 1.5, sin(t_global * 5.0) * 0.1)
 	for i in 6:
 		var lx := fmod(t_global * 400.0 + i * 220.0, 1500.0)
 		draw_line(Vector2(W - lx, gy - 10 - i * 22), Vector2(W - lx + 90, gy - 10 - i * 22), Color(1, 1, 1, 0.35), 5.0)
@@ -704,7 +783,7 @@ func _draw_menu() -> void:
 		var cx := 360.0 + (idx - (n - 1) / 2.0) * 130.0
 		var bobv := absf(sin(t_global * 3.4 + idx * 0.9)) * 12.0
 		_xf_about(Vector2(cx, 590), hk, hk)
-		_draw_chef_look(_slot_look(i), Vector2(cx, 575 - bobv), 1.0 if idx % 2 == 0 else -1.0, 0.0, 1.5 if n <= 2 else 1.25, sin(t_global * 2.0 + idx) * 0.06, absf(sin(t_global * 3.4 + idx * 0.9)) * 0.05, t_global * 1.5, 1.0, 0.0, false)
+		_stage_chef("hero_%d" % idx, _slot_look(i), Vector2(cx, 652), 0.62 if n <= 2 else 0.52, "dance")
 		_xf_reset()
 		idx += 1
 	_draw_dish("burger", Vector2(120, 520 + sin(t_global * 2.0) * 9.0), 36 * hk)
@@ -832,7 +911,7 @@ func _draw_players() -> void:
 		if on:
 			var cx := r.position.x + 145
 			_ell(Vector2(cx, r.position.y + 240), 54, 12, Color(0, 0, 0, 0.25))
-			_draw_chef_look(_slot_look(i), Vector2(cx, r.position.y + 190), 1.0, 0.0, 1.6, sin(t_global * 2.0 + i) * 0.05, absf(sin(t_global * 3.0 + i)) * 0.04, 0.0, 0.9, 0.0, false)
+			_stage_chef("slot_%d" % i, _slot_look(i), Vector2(cx, r.position.y + 254), 0.56, "idle")
 			_ctext(_slot_name(i), Vector2(cx, r.position.y + 282), 26, Color.WHITE)
 			var ctrl: String = str((KEYS[i] as Dictionary)["label"])
 			if Input.get_connected_joypads().has(i):
@@ -871,7 +950,7 @@ func _draw_customize() -> void:
 	_spr("glow", Vector2(330, 360), 4.8, 0.0, Color(1, 1, 1, 0.55))
 	_ell(Vector2(330, 540), 150, 28, Color(0, 0, 0, 0.3))
 	var k := 1.0 + sin(t_global * 3.0) * 0.012
-	_draw_chef_look(look, Vector2(330, 430), sin(t_global * 1.1), 0.0, 3.6 * k, 0.0, absf(sin(t_global * 3.0)) * 0.03, 0.0, 1.0, 0.0, false)
+	_stage_chef("custom", look, Vector2(330, 565), 1.0, "turn", "smile")
 	_ctext(pname, Vector2(330, 596), 38, Color.WHITE)
 	if edit_pid != "" or str(slots[edit_slot]["pid"]) != "":
 		_button(Rect2(210, 608, 240, 46), "RENAME", "cust_rename", Color("4c8bf5"), 22)
@@ -937,7 +1016,7 @@ func _draw_profiles() -> void:
 		_spr("star_on", r.position + Vector2(246, 74), 0.5)
 		_txt("%d" % total, r.position + Vector2(264, 82), 22, C_GOLD)
 		var st: Dictionary = p["stats"]
-		_txt("served %d  |  co-op games %d" % [int(st["served"]), int(st["coop_games"])], r.position + Vector2(318, 82), 16, Color(1, 1, 1, 0.8))
+		_txt("served %d" % int(st["served"]), r.position + Vector2(318, 82), 16, Color(1, 1, 1, 0.8))
 		if active:
 			_txt("PLAYING", r.position + Vector2(r.size.x - 200, 36), 18, Color("39b36b"))
 		if acc.order.size() > 1:
@@ -1173,284 +1252,4 @@ func _tutorial_text() -> String:
 
 
 func _draw_game() -> void:
-	_draw_kitchen()
-	_draw_customers()
-	_draw_chefs()
-
-
-func _draw_kitchen() -> void:
-	# walls continue past the map so the tilted camera never shows a gap
-	for y in range(-4, Data.ROWS + 2):
-		for x in range(-6, Data.COLS + 6):
-			if x >= 0 and x < Data.COLS and y >= 0 and y < Data.ROWS:
-				continue
-			_tile_spr("wall_%d" % world, Rect2(ORIGIN + Vector2(x, y) * TILE, Vector2(TILE, TILE)))
-	# pass 1: floors, carpets, walls
-	for y in Data.ROWS:
-		for x in Data.COLS:
-			var kind: String = map[y][x]
-			_draw_tile(kind, Rect2(ORIGIN + Vector2(x, y) * TILE, Vector2(TILE, TILE)), x, y, false)
-	_draw_depth()
-	# pass 2: everything standing on the floor, with soft cast shadows
-	for y in Data.ROWS:
-		for x in Data.COLS:
-			var kind2: String = map[y][x]
-			_draw_tile(kind2, Rect2(ORIGIN + Vector2(x, y) * TILE, Vector2(TILE, TILE)), x, y, true)
-	for key in stations:
-		var c: Vector2i = key
-		_draw_station_state(c, stations[c])
-	for key in plates:
-		var pc: Vector2i = key
-		_draw_plate(pc, plates[pc])
-	_draw_light()
-
-
-# ambient occlusion where walls meet the floor + visible wall faces (gives the room depth)
-func _draw_depth() -> void:
-	var z := Color(0, 0, 0, 0)
-	var dk := Color(0, 0, 0, 0.34)
-	var x0 := 64.0
-	var x1 := 1216.0
-	var yt := ORIGIN.y + TILE          # top of the floor
-	var yb := ORIGIN.y + 10 * TILE     # bottom wall
-	# faces of the walls you can "see": the top wall's front, the side walls' inner sides
-	draw_polygon(PackedVector2Array([Vector2(-400, yt - 14), Vector2(W + 400, yt - 14), Vector2(W + 400, yt), Vector2(-400, yt)]), PackedColorArray([z, z, dk, dk]))
-	draw_polygon(PackedVector2Array([Vector2(x0 - 16, yt), Vector2(x0, yt), Vector2(x0, yb), Vector2(x0 - 16, yb)]), PackedColorArray([z, dk, dk, z]))
-	draw_polygon(PackedVector2Array([Vector2(x1, yt), Vector2(x1 + 16, yt), Vector2(x1 + 16, yb), Vector2(x1, yb)]), PackedColorArray([dk, z, z, dk]))
-	# floor AO next to the walls
-	var ao := Color(0, 0, 0, 0.30)
-	draw_polygon(PackedVector2Array([Vector2(x0, yt), Vector2(x1, yt), Vector2(x1, yt + 34), Vector2(x0, yt + 34)]), PackedColorArray([ao, ao, z, z]))
-	draw_polygon(PackedVector2Array([Vector2(x0, yt), Vector2(x0 + 30, yt), Vector2(x0 + 30, yb), Vector2(x0, yb)]), PackedColorArray([ao, z, z, ao]))
-	draw_polygon(PackedVector2Array([Vector2(x1 - 30, yt), Vector2(x1, yt), Vector2(x1, yb), Vector2(x1 - 30, yb)]), PackedColorArray([z, ao, ao, z]))
-	draw_polygon(PackedVector2Array([Vector2(x0, yb - 30), Vector2(896, yb - 30), Vector2(896, yb), Vector2(x0, yb)]), PackedColorArray([z, z, ao, ao]))
-	# lit top edge of the bottom wall
-	draw_rect(Rect2(x0, yb, 832, 5), Color(1, 1, 1, 0.16))
-	# the counter between kitchen and dining room casts a shadow onto the carpet
-	draw_polygon(PackedVector2Array([Vector2(896, yt), Vector2(930, yt), Vector2(930, yb), Vector2(896, yb)]), PackedColorArray([ao, z, z, ao]))
-
-
-# warm light from the top left, a bit of dark bottom right
-func _draw_light() -> void:
-	var a := Color(1, 0.96, 0.85, 0.12)
-	var b := Color(1, 0.96, 0.85, 0.0)
-	var c := Color(0.1, 0.05, 0.2, 0.16)
-	var d := Color(0.1, 0.05, 0.2, 0.05)
-	draw_polygon(PackedVector2Array([Vector2(64, 80), Vector2(1216, 80), Vector2(1216, 656), Vector2(64, 656)]), PackedColorArray([a, b, c, d]))
-
-
-func _draw_wall_decor() -> void:
-	pass
-
-
-func _draw_plate(c: Vector2i, items: Array) -> void:
-	var pc := _cell_center(c) + Vector2(0, -6)
-	if items.is_empty():
-		return
-	var id := _recipe_for(items)
-	if id != "":
-		var bounce := 1.0 + sin(t_global * 6.0) * 0.04
-		_draw_dish(id, pc, 17 * bounce)
-		_spr("spark", pc + Vector2(18, -18), 0.45, t_global * 2.0)
-	else:
-		for i in items.size():
-			_draw_item(items[i], pc + Vector2(-16 + i * 16, -3 + (i % 2) * 8), 10)
-
-
-func _draw_tile(kind: String, rect: Rect2, x: int, y: int, objects: bool) -> void:
-	var checker := (x + y) % 2 == 0
-	var fl := "floor_%d%s" % [world, "a" if checker else "b"]
-	if not objects:
-		match kind:
-			"#":
-				_tile_spr("wall_%d" % world, rect)
-			"q":
-				_tile_spr("carpet_%d%s" % [world, "a" if checker else "b"], rect)
-			_:
-				_tile_spr(fl, rect)
-		return
-	if kind in "#q.":
-		return
-	var c := Vector2i(x, y)
-	var spr_name := ""
-	match kind:
-		"X": spr_name = "counter"
-		"M": spr_name = "crate_meat"
-		"V": spr_name = "crate_veg"
-		"D": spr_name = "crate_dough"
-		"C": spr_name = "chop_board"
-		"S": spr_name = "stove"
-		"O": spr_name = "oven"
-		"A": spr_name = "plate_station"
-		"B": spr_name = "bin"
-		"T": spr_name = "seat" if seats.has(c) else "seat_closed"
-	var k := 0.0
-	if pops.has(c):
-		k = sin(float(pops[c]) / 0.3 * PI) * 0.13
-	var jitter := 0.0
-	if kind == "C" and stations.has(c) and stations[c]["st"] == "working":
-		jitter = sin(t_global * 45.0) * 1.6
-		k += absf(sin(t_global * 22.0)) * 0.025
-	# soft cast shadow (light comes from the top left)
-	for i in 3:
-		_rr(Rect2(rect.position + Vector2(10 + i * 3, 14 + i * 3), rect.size - Vector2(10, 12)).grow(i * 2), Color(0, 0, 0, 0.07), 16)
-	_xf_about(rect.position + Vector2(TILE / 2.0, TILE * 0.92), 1.0 + k, 1.0 - k)
-	_tile_spr(spr_name, Rect2(rect.position + Vector2(0, jitter), rect.size))
-	_xf_reset()
-
-
-func _draw_station_state(c: Vector2i, s: Dictionary) -> void:
-	var kind: String = map[c.y][c.x]
-	var ctr := _cell_center(c)
-	var rect := Rect2(ORIGIN + Vector2(c) * TILE, Vector2(TILE, TILE))
-	var st: String = s["st"]
-	var k := 0.0
-	if pops.has(c):
-		k = sin(float(pops[c]) / 0.3 * PI) * 0.13
-	if kind == "S" and st != "idle":
-		for fx in [-20.0, 0.0, 20.0]:
-			var fl := 0.8 + sin(t_global * 17.0 + fx) * 0.2
-			_spr("flame", ctr + Vector2(fx, 14), 0.5 * fl, 0.0, Color(1, 1, 1, 0.95), Vector2(1.0, fl))
-		_xf_about(rect.position + Vector2(TILE / 2.0, TILE * 0.92), 1.0 + k, 1.0 - k)
-		_tile_spr("pot", Rect2(rect.position + Vector2(0, -4 + sin(t_global * 25.0) * (0.8 if st == "working" else 0.0)), rect.size))
-		_xf_reset()
-	if kind == "O" and st != "idle":
-		var g := 0.55 + sin(t_global * 5.0) * 0.12
-		_tile_spr("oven_glow", rect, Color(1, 1, 1, g if st != "burnt" else 0.25))
-	if kind == "C" and st != "idle":
-		_draw_item(s["out"] if st != "working" else s["in"], ctr + Vector2(0, -4 + sin(t_global * 45.0) * 1.4), 13)
-	if st == "idle":
-		return
-	var badge := ctr + Vector2(21, -23)
-	var bsc := 1.0
-	var ring := C_GOOD
-	var frac := 1.0
-	var rule: Dictionary = Data.RULES[kind]
-	var burn: float = rule["burn"]
-	if st == "working":
-		frac = clampf(float(s["t"]) / _station_time(kind), 0.0, 1.0)
-		ring = Color("ffb703")
-	elif st == "done":
-		bsc = 1.0 + sin(t_global * 8.0) * 0.07
-		if burn > 0.0:
-			var left: float = burn - float(s["t"])
-			frac = clampf(left / (burn - _station_time(kind)), 0.0, 1.0)
-			ring = C_GOOD.lerp(C_BAD, 1.0 - frac)
-			if left < 2.5:
-				badge += Vector2(sin(t_global * 60.0) * 1.8, 0)
-				bsc = 1.1 + sin(t_global * 14.0) * 0.1
-	elif st == "burnt":
-		ring = C_BAD
-		bsc = 1.0 + sin(t_global * 10.0) * 0.08
-	_xf_about(badge, bsc, bsc)
-	draw_circle(badge + Vector2(0, 2), 21, Color(0, 0, 0, 0.3))
-	draw_circle(badge, 21, C_OUTLINE)
-	draw_circle(badge, 18, Color.WHITE if st != "burnt" else Color("ffd0d0"))
-	draw_arc(badge, 15, -PI / 2, -PI / 2 + TAU * frac, 28, ring, 4.0)
-	var icon: String = s["in"] if st == "working" else s["out"]
-	_draw_item(icon, badge + Vector2(0, 1), 9)
-	_xf_reset()
-	if st == "done" and burn > 0.0 and float(s["t"]) > burn - 2.5 and int(t_global * 6.0) % 2 == 0:
-		_ctext("!", badge + Vector2(0, -26), 34, C_BAD)
-
-
-func _draw_chefs() -> void:
-	var order: Array = chefs.duplicate()
-	order.sort_custom(func(a, b): return a.pos.y < b.pos.y)
-	var many := chefs.size() > 1
-	for ch_v in order:
-		var ch: Chef = ch_v
-		var bob := sin(t_global * 3.0 + ch.id) * 1.0
-		var pc := Color(Data.PLAYER_COLORS[ch.id % 4])
-		if many:
-			draw_set_transform_matrix(xf * Transform2D(Vector2(1, 0), Vector2(0, 0.36), ch.pos + Vector2(0, 26)))
-			draw_arc(Vector2.ZERO, 27, 0, TAU, 28, pc, 5.0)
-			draw_set_transform_matrix(xf)
-		var wobble := sin(t_global * 40.0) * 0.06 * ch.bump
-		_draw_chef_look(ch.look, ch.pos, ch.face, bob, 1.0, clampf(ch.vel.x / 260.0, -1.0, 1.0) * 0.08 + wobble, ch.sq, ch.walk, 0.7, ch.vel.x, ch.moving)
-		if ch.held != "":
-			var hp := ch.held_pos + Vector2(0, -34 + sin(t_global * 5.0 + ch.id) * 2.0)
-			var k := 1.0 + 0.35 * _ease_out(ch.held_pop) * ch.held_pop
-			_xf_about(hp, k, k)
-			draw_circle(hp + Vector2(0, 3), 27, Color(0, 0, 0, 0.25))
-			draw_circle(hp, 27, C_OUTLINE)
-			draw_circle(hp, 24, Color("fffaf0"))
-			draw_circle(hp + Vector2(-8, -9), 7, Color(1, 1, 1, 0.9))
-			_draw_item(ch.held, hp, 15)
-			_xf_reset()
-		if many:
-			var label := "P%d" % (ch.id + 1) if net_mode == 0 else ch.name.substr(0, 8)
-			var lp := ch.pos + Vector2(0, 40)
-			_rr(Rect2(lp - Vector2(26, 11), Vector2(52, 20)), pc, 10, C_OUTLINE, 2)
-			_ctext(label, lp + Vector2(0, 5), 14, Color("2a1a12"))
-
-
-func _draw_customers() -> void:
-	for c in customers:
-		_draw_customer(c)
-
-
-func _draw_customer(c: Dictionary) -> void:
-	var seat: Vector2i = c["seat"]
-	var base := _customer_pos(seat)
-	var st: String = c["st"]
-	var t: float = c["t"]
-	var slide := 0.0
-	var hop := 0.0
-	var alpha := 1.0
-	if t < 0.8:
-		var e := 1.0 - _ease_out(t / 0.8)
-		slide = e * 190.0
-		hop = absf(sin(t * 16.0)) * 7.0 * e
-	if st == "happy":
-		hop = absf(sin(t * 9.0)) * 10.0 * maxf(0.0, 1.0 - t * 0.8)
-		if t > 0.7:
-			var e2 := (t - 0.7) / 0.5
-			slide = e2 * e2 * 190.0
-			alpha = 1.0 - clampf(e2, 0.0, 1.0)
-	elif st == "angry":
-		slide = sin(t * 40.0) * 3.0 * maxf(0.0, 1.0 - t)
-		if t > 0.7:
-			var e3 := (t - 0.7) / 0.5
-			slide += e3 * e3 * 190.0
-			alpha = 1.0 - clampf(e3, 0.0, 1.0)
-	var pos := base + Vector2(slide, -hop - 10 + sin(t_global * 3.0 + seat.y) * 1.5)
-	var look: int = c["look"]
-	var vip: bool = c["vip"]
-	var mod := Color(1, 1, 1, alpha)
-	var frac: float = float(c["pat"]) / float(c["max"])
-	if vip:
-		_spr("glow", pos + Vector2(0, 14), 2.6, 0.0, Color(1, 0.85, 0.3, 0.5 * alpha))
-	_ell(pos + Vector2(0, 66), 38, 8, Color(0, 0, 0, 0.22 * alpha))
-	_spr("cust_body_%d" % look, pos + Vector2(0, 42), 1.25, 0.0, mod)
-	_spr("cust_head_%d" % look, pos + Vector2(0, -5), 1.25, 0.0, mod)
-	if vip:
-		_spr("vip_crown", pos + Vector2(0, -52 + sin(t_global * 4.0) * 1.5), 0.8, sin(t_global * 2.0) * 0.05, mod)
-	var mood := 1.0 if st == "happy" else (-1.0 if st == "angry" else clampf((frac - 0.4) * 2.5, -1.0, 0.7))
-	var blink := 0.15 if fmod(t_global + seat.y * 0.7, 4.0) > 3.85 else 1.0
-	if alpha > 0.5:
-		_draw_face(pos, -0.6, mood, blink, 9.0, 1.25)
-	if st == "happy":
-		for i in 3:
-			var hy := pos.y - 40 - fmod(t * 40.0 + i * 20.0, 60.0)
-			_spr("heart", Vector2(pos.x + (i - 1) * 22, hy), 0.5, 0.0, Color(1, 1, 1, alpha))
-	elif st == "angry":
-		_txt("#!?", pos + Vector2(-20, -40), 26, C_BAD)
-	if st == "wait":
-		var bk := _ease_back((t - 0.6) / 0.4)
-		if bk > 0.0:
-			var urgent := frac < 0.3
-			var shake_x := sin(t_global * 40.0) * 2.0 if urgent else 0.0
-			var bpos := pos + Vector2(98 + shake_x, 0)
-			_xf_about(bpos, bk, bk)
-			_spr("bubble", bpos, 1.0, -PI / 2.0, Color(1, 0.85, 0.85) if urgent else Color.WHITE)
-			var dish_id: String = c["order"]
-			var matches := false
-			for ch in chefs:
-				if ch.held.begins_with("dish:") and ch.held.substr(5) == dish_id:
-					matches = true
-			_draw_dish(dish_id, bpos + Vector2(5, -8), 20.0 + (2.0 * sin(t_global * 8.0) if matches else 0.0))
-			var bar_col := C_GOOD if frac > 0.5 else (C_GOLD if frac > 0.25 else C_BAD)
-			_bar(Rect2(bpos + Vector2(-32, 36), Vector2(76, 9)), frac, bar_col)
-			_xf_reset()
-			if matches:
-				draw_arc(pos + Vector2(0, 30), 62 + sin(t_global * 8.0) * 3.0, 0, TAU, 32, Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, 0.85), 4.0)
+	pass   # the kitchen is rendered by world3d.gd; overlays are drawn by hud_layer.gd

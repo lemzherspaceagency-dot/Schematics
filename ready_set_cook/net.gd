@@ -379,6 +379,7 @@ func s_start(level: int, defs: Array, seat_list: Array) -> void:
 			my_index = i
 		m.chefs.append(ch)
 		goals[i] = ch.pos
+	m.view.build_level()
 	m.intro = 3.0
 	m.earned_shown = 0.0
 	m.state_t = 0.0
