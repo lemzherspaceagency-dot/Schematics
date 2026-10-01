@@ -666,18 +666,19 @@ static func _chef(look: Dictionary) -> Node3D:
 	for sx in [-1.0, 1.0]:
 		mi(root, capsule(0.09, 0.4), mat(black, 0.7), Vector3(sx * 0.13, 0.28, 0.01)).name = "leg_l" if sx < 0 else "leg_r"
 	var body := node(root, "body", Vector3(0, 0.46, 0))
-	mi(body, capsule(0.275, 0.62), mat(jacket, 0.65), Vector3(0, 0.2, 0), Vector3.ZERO, Vector3(1.0, 1.0, 0.92))
+	mi(body, capsule(0.31, 0.66), mat(jacket, 0.65), Vector3(0, 0.2, 0), Vector3.ZERO, Vector3(1.0, 1.0, 0.9))
 	# double-breasted front: two plackets crossing, two columns of buttons, a white collar
 	for i in 3:
 		for sx in [-1.0, 1.0]:
 			mi(body, sphere(0.024), mat("8d96aa", 0.35), Vector3(sx * 0.115, 0.34 - i * 0.12, 0.245))
 	mi(body, torus(0.12, 0.2), mat("eef1f7", 0.6), Vector3(0, 0.46, 0.0), Vector3.ZERO, Vector3(1, 0.5, 0.9))
 	for sx in [-1.0, 1.0]:
-		var arm := node(body, "arm_l" if sx < 0 else "arm_r", Vector3(sx * 0.3, 0.4, 0))
-		mi(arm, capsule(0.095, 0.4), mat(jacket, 0.65), Vector3(sx * 0.02, -0.17, 0), Vector3(0, 0, sx * 6))
-		mi(arm, cyl(0.1, 0.1, 0.06), mat("eef1f7", 0.6), Vector3(sx * 0.04, -0.33, 0.0))
-		mi(arm, sphere(0.105), mat(skin, 0.5), Vector3(sx * 0.04, -0.42, 0.02))
+		var arm := node(body, "arm_l" if sx < 0 else "arm_r", Vector3(sx * 0.35, 0.4, 0))
+		mi(arm, capsule(0.095, 0.4), mat(jacket, 0.65), Vector3(sx * 0.03, -0.17, 0), Vector3(0, 0, sx * 14))
+		mi(arm, cyl(0.1, 0.1, 0.06), mat("eef1f7", 0.6), Vector3(sx * 0.08, -0.33, 0.0))
+		mi(arm, sphere(0.105), mat(skin, 0.5), Vector3(sx * 0.1, -0.42, 0.03))
 	var head := node(root, "head", Vector3(0, 1.1, 0))
+	head.scale = Vector3.ONE * 0.84
 	mi(head, sphere(0.34), mat(skin, 0.45), Vector3.ZERO, Vector3.ZERO, Vector3(1.0, 0.94, 0.96))
 	for sx in [-1.0, 1.0]:
 		mi(head, sphere(0.07), mat(skin, 0.45), Vector3(sx * 0.33, -0.01, 0.0))
@@ -687,8 +688,8 @@ static func _chef(look: Dictionary) -> Node3D:
 	var gear := node(head, "gear", Vector3(0, 0.0, 0.05))
 	gear.scale = Vector3.ONE * 1.18
 	_accessory(gear, str(Data.ACCS[clampi(int(look.get("acc", 0)), 0, Data.ACCS.size() - 1)]))
-	var hatn := node(head, "hat", Vector3(0, 0.05, 0))
-	hatn.scale = Vector3.ONE * 1.2
+	var hatn := node(head, "hat", Vector3(0, 0.0, 0))
+	hatn.scale = Vector3.ONE * 0.92
 	_hat(hatn, str(Data.HATS[clampi(int(look.get("hat", 0)), 0, Data.HATS.size() - 1)]), hat_col)
 	node(root, "held", Vector3(0, 1.95, 0))
 	return root
