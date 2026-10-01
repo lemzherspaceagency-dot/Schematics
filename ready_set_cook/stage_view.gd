@@ -94,6 +94,10 @@ func _process(delta: float) -> void:
 func _make_bust(n: Node3D) -> void:
 	for nm in ["foot_l", "foot_r", "leg_l", "leg_r"]:
 		(n.get_node(nm) as Node3D).visible = false
+	if n.has_meta("kay"):
+		for lg in n.get_node("model").find_children("*Leg*", "MeshInstance3D"):
+			lg.visible = false
+		return
 	var body: Node3D = n.get_node("body")
 	body.get_node("arm_l").visible = false
 	body.get_node("arm_r").visible = false
@@ -136,6 +140,8 @@ func _place(it: Dictionary, r: Dictionary) -> void:
 		n.rotation.y = yaw
 	var body: Node3D = n.get_node("body")
 	var head: Node3D = n.get_node("head")
+	if n.has_meta("kay"):
+		Models.kay_play(n, "Running_A" if anim == "run" else ("Idle_B" if anim == "dance" else "Idle_A"), 1.0)
 	if not bust:
 		(body.get_node("arm_l") as Node3D).rotation.x = swing * 0.9 if anim != "dance" else -2.4 - swing * 0.4
 		(body.get_node("arm_r") as Node3D).rotation.x = -swing * 0.9 if anim != "dance" else -2.4 + swing * 0.4
@@ -144,7 +150,7 @@ func _place(it: Dictionary, r: Dictionary) -> void:
 		body.rotation.x = 0.2 if anim == "run" else 0.0
 	head.rotation.z = sin(t * 2.0 + pos.y) * 0.04
 	var fk: String = str(r["face"]) + str(fmod(t, 3.6) > 3.45)
-	if fk != it["face"]:
+	if fk != it["face"] and not n.has_meta("kay"):
 		it["face"] = fk
 		var blink := fmod(t, 3.6) > 3.45
 		var eyes := "eyes_closed" if blink else "eyes_open"

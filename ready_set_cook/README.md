@@ -98,3 +98,6 @@ The kitchen is now built from professional CC0 3D models instead of hand-scripte
 `blender_src/kay_assets.py` assembles them into `assets/*.glb` (`PACKS=/path/to/unzipped/packs python3 kay_assets.py`).
 Pieces are scaled to half size so one KayKit tile equals one game tile; stations are stretched a little taller (`SZ`) so they read chunky from the camera.
 Heights are data-driven (`Models.TOP`, `KitchenView.CHAR`). Licences are in `licenses/`.
+
+## v4.2 chefs
+Chefs are now the rigged **KayKit Adventurers 2.0 (CC0)** characters (`assets/chars/`) animated with the KayKit Rig_Medium animations (idle, run, pick-up). The chef hat and apron are still ours (attached to the head/chest bones). "Character" in the customiser picks the model; hat, hat colour and apron are tinted per player. If `assets/chars/` is removed the old procedural chefs are used. Licence: `licenses/KayKit_Adventurers_License.txt`.

@@ -540,9 +540,116 @@ static func _hex(list: Array, idx: int) -> String:
 # A chef. Children worth animating: body, head, arm_l, arm_r, foot_l, foot_r, held (anchor above the head)
 static func chef(look: Dictionary) -> Node3D:
 	_clean = true
-	var r := _chef(look)
+	var r := _kay_chef(look)
+	if r == null:
+		r = _chef(look)
 	_clean = false
 	return r
+
+
+# ---- rigged chefs: KayKit Adventurers (CC0) + the Rig_Medium animation set ----
+const CHAR_FILES := ["Knight", "Barbarian", "Mage", "Ranger", "Rogue", "Rogue_Hooded"]
+const KAY_HIDE := ["Helmet", "HelmetVisor", "Cape", "Hat", "BearHat", "Quiver", "Mask"]
+const KAY_SCALE := 0.63          # head centre ends up at y = 1.1 like the old procedural chef
+static var _anim_lib: AnimationLibrary
+
+
+static func _kay_lib() -> AnimationLibrary:
+	if _anim_lib == null:
+		_anim_lib = AnimationLibrary.new()
+		for f in ["Rig_Medium_General", "Rig_Medium_MovementBasic"]:
+			var inst := (load("res://assets/chars/%s.glb" % f) as PackedScene).instantiate()
+			var ap := inst.find_child("AnimationPlayer", true, false) as AnimationPlayer
+			for a in ap.get_animation_list():
+				if a == "T-Pose" or _anim_lib.has_animation(a):
+					continue
+				var an := ap.get_animation(a).duplicate() as Animation
+				if a.begins_with("Idle") or a.begins_with("Walking") or a.begins_with("Running"):
+					an.loop_mode = Animation.LOOP_LINEAR
+				_anim_lib.add_animation(a, an)
+			inst.free()
+	return _anim_lib
+
+
+static func _kay_chef(look: Dictionary) -> Node3D:
+	var idx: int = int(look.get("skin", 0)) % CHAR_FILES.size()
+	var path: String = "res://assets/chars/%s.glb" % CHAR_FILES[idx]
+	if not ResourceLoader.exists(path) or not ResourceLoader.exists("res://assets/chars/Rig_Medium_General.glb"):
+		return null
+	var root := Node3D.new()
+	root.name = "chef"
+	var model := (load(path) as PackedScene).instantiate() as Node3D
+	model.name = "model"
+	model.scale = Vector3.ONE * KAY_SCALE
+	root.add_child(model)
+	for mi_ in model.find_children("*", "MeshInstance3D"):
+		var mesh_i := mi_ as MeshInstance3D
+		for h in KAY_HIDE:
+			if str(mesh_i.name).ends_with("_" + h):
+				mesh_i.visible = false
+		for s in mesh_i.mesh.get_surface_count():
+			var src := mesh_i.mesh.surface_get_material(s)
+			if src is StandardMaterial3D:
+				var d := (src as StandardMaterial3D).duplicate() as StandardMaterial3D
+				d.next_pass = outline_thin()
+				d.roughness = 0.8
+				mesh_i.set_surface_override_material(s, d)
+	# stand-in nodes so the old rig code (menus, sync) still finds its named parts
+	var body := node(root, "body", Vector3(0, 0.46, 0))
+	node(body, "arm_l")
+	node(body, "arm_r")
+	var head := node(root, "head", Vector3(0, 1.1, 0))
+	for nm in ["eyes", "mouth"]:
+		var sp := Sprite3D.new()
+		sp.name = nm
+		sp.visible = false
+		head.add_child(sp)
+	for nm in ["foot_l", "foot_r", "leg_l", "leg_r"]:
+		node(root, nm)
+	node(root, "held", Vector3(0, 1.95, 0))
+	# chef hat on the head bone, apron on the chest
+	var sk := model.find_child("Skeleton3D", true, false) as Skeleton3D
+	var hat_style := str(Data.HATS[clampi(int(look.get("hat", 0)), 0, Data.HATS.size() - 1)])
+	var hb := BoneAttachment3D.new()
+	hb.bone_name = "head"
+	sk.add_child(hb)
+	var hh := node(hb, "hat", Vector3(0, 0.56, 0.0))
+	hh.scale = Vector3.ONE * 1.9
+	_hat(hh, hat_style, _hex(Data.COLORS, int(look.get("hat_col", 0))))
+	var cb := BoneAttachment3D.new()
+	cb.bone_name = "chest"
+	sk.add_child(cb)
+	var ap_col := _hex(Data.COLORS, int(look.get("apron", 0)))
+	mi(cb, rbox(Vector3(0.5, 0.56, 0.1), 0.05), mat(ap_col, 0.65), Vector3(0, -0.14, 0.34), Vector3(6, 0, 0))
+	mi(cb, rbox(Vector3(0.24, 0.14, 0.04), 0.02), mat(ap_col, 0.65), Vector3(0, -0.3, 0.4))
+	var ap := AnimationPlayer.new()
+	ap.name = "anim"
+	root.add_child(ap)
+	ap.root_node = NodePath("../model")
+	ap.add_animation_library("", _kay_lib())
+	ap.play("Idle_A")
+	ap.advance(randf() * 1.0)
+	root.set_meta("kay", true)
+	return root
+
+
+# play a looping animation (one-shots like PickUp finish first)
+static func kay_play(n: Node3D, anim: String, speed: float = 1.0) -> void:
+	var ap := n.get_node_or_null("anim") as AnimationPlayer
+	if ap == null:
+		return
+	if ap.current_animation in ["PickUp", "Interact", "Use_Item"] and ap.is_playing():
+		return
+	ap.speed_scale = speed
+	if ap.current_animation != anim or not ap.is_playing():
+		ap.play(anim, 0.15)
+
+
+static func kay_once(n: Node3D, anim: String) -> void:
+	var ap := n.get_node_or_null("anim") as AnimationPlayer
+	if ap != null:
+		ap.speed_scale = 1.4
+		ap.play(anim, 0.1)
 
 
 static func _chef(look: Dictionary) -> Node3D:

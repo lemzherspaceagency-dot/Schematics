@@ -500,6 +500,8 @@ func _sync_chefs(delta: float) -> void:
 		var body: Node3D = n.get_node("body")
 		var head: Node3D = n.get_node("head")
 		var swing := sin(ch.walk) if spd > 25.0 else 0.0
+		if n.has_meta("kay"):
+			Models.kay_play(n, "Running_A" if spd > 25.0 else "Idle_A", clampf(spd / 170.0, 0.7, 1.5) if spd > 25.0 else 1.0)
 		(body.get_node("arm_l") as Node3D).rotation.x = swing * 0.9
 		(body.get_node("arm_r") as Node3D).rotation.x = -swing * 0.9
 		(n.get_node("foot_l") as Node3D).position = Vector3(-0.12, 0.06 + maxf(0.0, swing) * 0.08, 0.03 + swing * 0.1)
@@ -512,13 +514,15 @@ func _sync_chefs(delta: float) -> void:
 		# face
 		var blink := fmod(t + ch.id * 0.9, 3.6) > 3.45
 		var face_key := "%s_%s" % [blink, ch.bump > 0.2]
-		if face_key != e["face"]:
+		if face_key != e["face"] and not n.has_meta("kay"):
 			e["face"] = face_key
 			_set_face(head, "eyes_closed" if blink else ("eyes_worried" if ch.bump > 0.2 else "eyes_open"), "mouth_o" if ch.bump > 0.2 else "mouth_smile")
 		# carried item floats above the head
 		var held_anchor: Node3D = n.get_node("held")
 		if e["held"] != ch.held:
 			e["held"] = ch.held
+			if n.has_meta("kay") and ch.held != "":
+				Models.kay_once(n, "PickUp")
 			_set_slot_item(held_anchor, ch.held.substr(5) if ch.held.begins_with("dish:") else ch.held, ch.held.begins_with("dish:"), 0.62)
 		held_anchor.position.y = 1.95 + sin(t * 4.0 + ch.id) * 0.04
 		held_anchor.rotation.y = t * 1.2 - yaw

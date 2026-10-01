@@ -3,9 +3,8 @@ extends GameSim
 # Simulation lives in game_sim.gd, drawing helpers in draw_kit.gd.
 
 const CUSTOM_CATS := [
-	{"id": "skin", "label": "Skin"}, {"id": "hat", "label": "Hat"}, {"id": "hat_col", "label": "Hat colour"},
-	{"id": "jacket", "label": "Jacket"}, {"id": "apron", "label": "Apron"}, {"id": "scarf", "label": "Scarf"},
-	{"id": "acc", "label": "Face gear"},
+	{"id": "skin", "label": "Character"}, {"id": "hat", "label": "Hat"}, {"id": "hat_col", "label": "Hat colour"},
+	{"id": "apron", "label": "Apron"},
 ]
 const KEY_ROWS := ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]
 
