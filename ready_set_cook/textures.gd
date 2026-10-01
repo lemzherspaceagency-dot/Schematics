@@ -144,3 +144,105 @@ static func make(kind: String, base: Color, alt: Color, v: int) -> ImageTexture:
 	var t := ImageTexture.create_from_image(img)
 	_cache[key] = t
 	return t
+
+
+# ---------------------------------------------------------------------------
+# hand-painted dirt decals (transparent): scratches, stains, spills, scribbles, knife cuts
+# ---------------------------------------------------------------------------
+static func _blend(img: Image, x: int, y: int, col: Color) -> void:
+	if x < 0 or y < 0 or x >= img.get_width() or y >= img.get_height():
+		return
+	var o := img.get_pixel(x, y)
+	var a := col.a + o.a * (1.0 - col.a)
+	if a <= 0.0:
+		return
+	var rgb := (Vector3(col.r, col.g, col.b) * col.a + Vector3(o.r, o.g, o.b) * o.a * (1.0 - col.a)) / a
+	img.set_pixel(x, y, Color(rgb.x, rgb.y, rgb.z, a))
+
+
+static func _line(img: Image, a: Vector2, b: Vector2, col: Color, w: float = 1.0) -> void:
+	var n := int(a.distance_to(b)) + 1
+	for i in n + 1:
+		var p := a.lerp(b, float(i) / float(maxi(1, n)))
+		for dx in range(-int(w), int(w) + 1):
+			for dy in range(-int(w), int(w) + 1):
+				if Vector2(dx, dy).length() <= w + 0.3:
+					_blend(img, int(p.x) + dx, int(p.y) + dy, col)
+
+
+static func grime(kind: String, v: int) -> ImageTexture:
+	var key := "grime_%s_%d" % [kind, v]
+	if _cache.has(key):
+		return _cache[key]
+	var S := 128
+	var img := Image.create(S, S, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(key)
+	var n := _n()
+	var ink := Color(0.1, 0.06, 0.04, 0.75)
+	match kind:
+		"scratch":
+			for i in rng.randi_range(4, 8):
+				var p := Vector2(rng.randf_range(10, 118), rng.randf_range(10, 118))
+				var d := Vector2.from_angle(rng.randf_range(0, TAU)) * rng.randf_range(8, 34)
+				_line(img, p, p + d, Color(0.1, 0.06, 0.04, rng.randf_range(0.25, 0.6)), 0.6)
+			for i in 14:
+				_blend(img, rng.randi_range(4, 123), rng.randi_range(4, 123), Color(0.1, 0.06, 0.04, 0.6))
+		"stain":
+			# a coffee-ring blotch: darker rim, lighter middle
+			var c := Vector2(rng.randf_range(44, 84), rng.randf_range(44, 84))
+			var r := rng.randf_range(16, 34)
+			for y in S:
+				for x in S:
+					var d := Vector2(x, y).distance_to(c)
+					var wob := 1.0 + 0.28 * n.get_noise_2d(x * 2.2 + v * 31.0, y * 2.2)
+					var k := d / (r * wob)
+					if k < 1.0:
+						var rim := smoothstep(0.55, 1.0, k)
+						_blend(img, x, y, Color(0.33, 0.2, 0.1, 0.1 + rim * 0.3))
+		"squiggle":
+			# the little ink doodles on the real counters
+			var p := Vector2(rng.randf_range(34, 94), rng.randf_range(34, 94))
+			var prev := p
+			var ang := rng.randf_range(0, TAU)
+			for i in 40:
+				ang += rng.randf_range(-0.9, 0.9) + 0.35
+				var np := prev + Vector2.from_angle(ang) * 3.2
+				_line(img, prev, np, ink, 0.8)
+				prev = np
+		"spill":
+			var c := Vector2(64, 64)
+			var r := rng.randf_range(22, 40)
+			for y in S:
+				for x in S:
+					var d := Vector2(x, y).distance_to(c)
+					var wob := 1.0 + 0.4 * n.get_noise_2d(x * 1.6 + v * 17.0, y * 1.6)
+					if d < r * wob:
+						_blend(img, x, y, Color(0.6, 0.78, 0.95, 0.38))
+						if d > r * wob - 3.0:
+							_blend(img, x, y, Color(0.2, 0.35, 0.55, 0.45))
+			_line(img, c + Vector2(-8, -6), c + Vector2(4, -10), Color(1, 1, 1, 0.55), 1.4)
+		"dirt":
+			for i in 40:
+				var p := Vector2(rng.randf_range(6, 122), rng.randf_range(6, 122))
+				var rr := rng.randf_range(0.8, 2.6)
+				for dx in range(-3, 4):
+					for dy in range(-3, 4):
+						if Vector2(dx, dy).length() <= rr:
+							_blend(img, int(p.x) + dx, int(p.y) + dy, Color(0.12, 0.08, 0.06, rng.randf_range(0.2, 0.5)))
+		"scuff":
+			for i in 3:
+				var p := Vector2(rng.randf_range(20, 90), rng.randf_range(20, 108))
+				var d := Vector2.from_angle(rng.randf_range(-0.5, 0.5)) * rng.randf_range(20, 44)
+				for j in 4:
+					_line(img, p + Vector2(0, j * 2.0), p + d + Vector2(0, j * 2.0), Color(0.08, 0.05, 0.04, 0.16), 0.9)
+		"cut":
+			# knife marks on the chopping board
+			for i in 2:
+				var o := Vector2(rng.randf_range(-4, 4), rng.randf_range(-4, 4))
+				_line(img, Vector2(40, 38) + o, Vector2(86, 90) + o, ink, 1.4)
+				_line(img, Vector2(86, 38) + o, Vector2(40, 90) + o, ink, 1.4)
+	var tex := ImageTexture.create_from_image(img)
+	_cache[key] = tex
+	return tex

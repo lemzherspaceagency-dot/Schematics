@@ -892,8 +892,8 @@ static func _extrude(poly: PackedVector2Array, y0: float, y1: float) -> ArrayMes
 		# top (the material is double sided, so winding does not matter)
 		st.set_normal(Vector3.UP)
 		st.add_vertex(Vector3(c.x, y1, c.y))
-		st.add_vertex(Vector3(b.x, y1, b.y))
 		st.add_vertex(Vector3(a.x, y1, a.y))
+		st.add_vertex(Vector3(b.x, y1, b.y))
 		# side
 		var n := Vector3(b.y - a.y, 0, -(b.x - a.x)).normalized()
 		st.set_normal(n)
@@ -925,7 +925,7 @@ static func counter_round(shape: String, yaw_deg: float) -> Node3D:
 	root.name = "station_X"
 	var body_m := mat("bfc4cf", 0.6).duplicate() as StandardMaterial3D
 	body_m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var top_m := mat("c98d54", 0.6).duplicate() as StandardMaterial3D
+	var top_m := mat("9f6234", 0.6).duplicate() as StandardMaterial3D
 	top_m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var body := mi(root, _extrude(poly, 0.0, TOP - 0.06), body_m)
 	var top := mi(root, _extrude(poly, TOP - 0.06, TOP), top_m)

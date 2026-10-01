@@ -218,6 +218,7 @@ func build_level() -> void:
 				level_root.add_child(st)
 				station_nodes[Vector2i(x, y)] = st
 				_blob(cpos, 1.12)
+	_grime()
 	_side_walls()
 	_decorate(world)
 	_ambient_occlusion()
@@ -303,6 +304,58 @@ func _decorate(world: int) -> void:
 	shelf.position = Vector3(1.0, 1.4, 6.0)
 	shelf.rotation_degrees = Vector3(0, 90, 0)
 	level_root.add_child(shelf)
+
+
+# hand-painted dirt: stains, spills, scratches and doodles so nothing looks factory fresh
+func _decal(kind: String, v: int, pos: Vector3, size: float, yaw: float, alpha: float = 1.0) -> void:
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = Textures.grime(kind, v)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.albedo_color = Color(1, 1, 1, alpha)
+	m.roughness = 1.0
+	var p := PlaneMesh.new()
+	p.size = Vector2(size, size)
+	var mi_ := MeshInstance3D.new()
+	mi_.mesh = p
+	mi_.material_override = m
+	mi_.position = pos
+	mi_.rotation.y = yaw
+	mi_.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	level_root.add_child(mi_)
+
+
+func _grime() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4242 + g.world * 77
+	for y in Data.ROWS:
+		for x in Data.COLS:
+			var kind: String = g.map[y][x]
+			var c := Vector3(x + 0.5, 0, y + 0.5)
+			if kind == "#":
+				continue
+			if kind in "XCAMVDSO":
+				# counter-style tops get scratches and the odd stain or doodle
+				var top := Models.TOP + 0.012
+				if kind in "MVD":
+					continue
+				_decal("scratch", rng.randi() % 4, Vector3(c.x, top, c.z), 0.95, rng.randf() * TAU, 0.9)
+				if kind == "X" and rng.randf() < 0.55:
+					_decal("squiggle" if rng.randf() < 0.5 else "stain", rng.randi() % 3, Vector3(c.x + rng.randf_range(-0.1, 0.1), top + 0.002, c.z), 0.8, rng.randf() * TAU)
+				if kind == "C":
+					_decal("cut", rng.randi() % 2, Vector3(c.x, top + 0.07, c.z), 0.62, 0.0)
+				continue
+			# floor
+			var r := rng.randf()
+			var kitchen := kind in ".M"
+			if r < 0.3:
+				_decal("stain", rng.randi() % 4, Vector3(c.x, 0.014, c.z), rng.randf_range(0.7, 1.3), rng.randf() * TAU, 0.8)
+			elif r < 0.42 and kitchen:
+				_decal("spill", rng.randi() % 3, Vector3(c.x, 0.016, c.z), rng.randf_range(0.6, 1.0), rng.randf() * TAU)
+			elif r < 0.62:
+				_decal("scuff", rng.randi() % 3, Vector3(c.x, 0.015, c.z), 1.0, rng.randf() * TAU)
+			if rng.randf() < 0.35:
+				_decal("dirt", rng.randi() % 3, Vector3(c.x, 0.017, c.z), 1.0, rng.randf() * TAU, 0.8)
 
 
 # counters that end (or turn a corner) get a rounded shape, like the curved counters in the real game
