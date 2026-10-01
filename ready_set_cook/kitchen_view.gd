@@ -213,6 +213,7 @@ func build_level() -> void:
 				level_root.add_child(st)
 				station_nodes[Vector2i(x, y)] = st
 				_blob(cpos, 1.12)
+	_side_walls()
 	_decorate(world)
 	_ambient_occlusion()
 	for key in g.plates:
@@ -297,6 +298,19 @@ func _decorate(world: int) -> void:
 	shelf.position = Vector3(1.0, 1.4, 6.0)
 	shelf.rotation_degrees = Vector3(0, 90, 0)
 	level_root.add_child(shelf)
+
+
+# KayKit wall pieces on the inner face of the left and right walls
+func _side_walls() -> void:
+	for side in 2:
+		for i in 4:
+			var piece := Models.asset("env_window" if i == 1 else "env_wall")
+			if piece == null:
+				continue
+			var left := side == 0
+			piece.position = Vector3(0.9 if left else Data.COLS - 0.9, 0, 2.0 + i * 2.0)
+			piece.rotation_degrees = Vector3(0, 90 if left else -90, 0)
+			level_root.add_child(piece)
 
 
 func _ambient_occlusion() -> void:
@@ -570,6 +584,8 @@ func _sync_customers(delta: float) -> void:
 			if ct > 0.7:
 				scl = maxf(0.01, 1.0 - (ct - 0.7) / 0.5)
 		var base := to3(g._customer_pos(seat))
+		var toward: Vector2i = seat - (g.chair_of.get(seat, seat) as Vector2i)
+		base += Vector3(toward.x, 0, toward.y) * 0.12
 		n.position = base + Vector3(0, hop, 0)
 		var chair_cell: Vector2i = g.chair_of.get(seat, seat)
 		var dv: Vector2i = seat - chair_cell
