@@ -16,6 +16,19 @@ static func outline() -> ShaderMaterial:
 	return _outline
 
 
+# characters get clean, smooth shading (no grunge) and a slimmer ink line
+static var _clean := false
+static var _outline_thin: ShaderMaterial
+
+
+static func outline_thin() -> ShaderMaterial:
+	if _outline_thin == null:
+		_outline_thin = ShaderMaterial.new()
+		_outline_thin.shader = load("res://outline.gdshader")
+		_outline_thin.set_shader_parameter("width", 0.014)
+	return _outline_thin
+
+
 static func _paint(m: StandardMaterial3D, scale: float = 3.0) -> void:
 	m.detail_enabled = true
 	m.detail_albedo = Textures.grunge()
@@ -27,7 +40,7 @@ static func _paint(m: StandardMaterial3D, scale: float = 3.0) -> void:
 # ---------------------------------------------------------------- materials & meshes
 
 static func mat(hex: String, rough: float = 0.55, metal: float = 0.0, emit: float = 0.0) -> StandardMaterial3D:
-	var key := "%s_%.2f_%.2f_%.2f" % [hex, rough, metal, emit]
+	var key := "%s_%.2f_%.2f_%.2f%s" % [hex, rough, metal, emit, "c" if _clean else ""]
 	if _mats.has(key):
 		return _mats[key]
 	var m := StandardMaterial3D.new()
@@ -38,6 +51,8 @@ static func mat(hex: String, rough: float = 0.55, metal: float = 0.0, emit: floa
 		m.emission_enabled = true
 		m.emission = Color(hex)
 		m.emission_energy_multiplier = emit
+	elif _clean:
+		m.next_pass = outline_thin()
 	else:
 		_paint(m)
 		m.next_pass = outline()
@@ -524,6 +539,13 @@ static func _hex(list: Array, idx: int) -> String:
 
 # A chef. Children worth animating: body, head, arm_l, arm_r, foot_l, foot_r, held (anchor above the head)
 static func chef(look: Dictionary) -> Node3D:
+	_clean = true
+	var r := _chef(look)
+	_clean = false
+	return r
+
+
+static func _chef(look: Dictionary) -> Node3D:
 	var root := Node3D.new()
 	root.name = "chef"
 	var skin := _hex(Data.SKINS, int(look.get("skin", 0)))
@@ -538,7 +560,7 @@ static func chef(look: Dictionary) -> Node3D:
 		mi(root, capsule(0.085, 0.36), mat("35405e", 0.7), Vector3(sx * 0.12, 0.26, 0.01)).name = "leg_l" if sx < 0 else "leg_r"
 	var body := node(root, "body", Vector3(0, 0.46, 0))
 	mi(body, capsule(0.255, 0.66), mat(jacket, 0.65), Vector3(0, 0.18, 0), Vector3.ZERO, Vector3(1.0, 1.0, 0.92))
-	mi(body, rbox(Vector3(0.36, 0.44, 0.05), 0.03), mat(apron, 0.65), Vector3(0, 0.1, 0.225), Vector3(8, 0, 0))
+	mi(body, rbox(Vector3(0.38, 0.46, 0.1), 0.05), mat(apron, 0.65), Vector3(0, 0.1, 0.215), Vector3(8, 0, 0))
 	mi(body, rbox(Vector3(0.16, 0.12, 0.03), 0.015), mat("000000", 0.9), Vector3(0, 0.03, 0.258)).material_override = mat(apron, 0.7)
 	mi(body, rbox(Vector3(0.2, 0.2, 0.04), 0.02), mat(scarf, 0.6), Vector3(0, 0.44, 0.2), Vector3(0, 0, 45))
 	for i in 2:
@@ -620,6 +642,13 @@ const CUST_SHIRT := ["ef476f", "06d6a0", "118ab2", "ffd166", "9b5de5", "ff9f1c"]
 
 
 static func customer(look: int, vip: bool) -> Node3D:
+	_clean = true
+	var r := _customer(look, vip)
+	_clean = false
+	return r
+
+
+static func _customer(look: int, vip: bool) -> Node3D:
 	var root := Node3D.new()
 	root.name = "customer"
 	var skin: String = CUST_SKIN[look % 6]
