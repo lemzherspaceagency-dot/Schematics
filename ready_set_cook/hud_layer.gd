@@ -210,11 +210,11 @@ func _draw_world_overlays() -> void:
 		if bk <= 0.0:
 			continue
 		var sc2 := clampf(v.px_scale(cpx), 0.7, 1.3)
-		var head: Vector2 = v.project(cpx, 1.75)
+		var head: Vector2 = v.project(cpx, 1.55)
 		var frac: float = float(c["pat"]) / float(c["max"])
 		var urgent := frac < 0.3
 		var bpos: Vector2 = head + Vector2(98 * sc2 + (sin(t_global * 40.0) * 2.0 if urgent else 0.0), 8 * sc2)
-		_xf_about(bpos, bk * sc2, bk * sc2)
+		_xf_about(bpos, bk * sc2 * 0.85, bk * sc2 * 0.85)
 		_spr("bubble", bpos, 1.0, -PI / 2.0, Color(1, 0.85, 0.85) if urgent else Color.WHITE)
 		var dish_id: String = c["order"]
 		var matches := false

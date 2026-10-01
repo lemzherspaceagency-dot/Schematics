@@ -22,6 +22,14 @@ var t := 0.0
 var cam_base := Vector3.ZERO
 var cam_target := Vector3.ZERO
 var wall_mats := {}
+var _blob_mat: StandardMaterial3D = null
+
+
+# camera: almost straight down with a little perspective, like the real game's view
+const CAM_FOV := 26.0
+const CAM_PITCH := 62.0
+const CAM_DIST := 21.5
+const CAM_TARGET := Vector3(8.0, 0.0, 4.85)
 
 
 func _ready() -> void:
@@ -30,36 +38,38 @@ func _ready() -> void:
 	e.background_mode = Environment.BG_COLOR
 	e.background_color = Color("14111c")
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color(0.62, 0.66, 0.82)
-	e.ambient_light_energy = 0.5
+	e.ambient_light_color = Color(0.72, 0.74, 0.86)
+	e.ambient_light_energy = 0.78
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	e.tonemap_exposure = 0.78
+	e.tonemap_exposure = 0.82
 	e.adjustment_enabled = true
-	e.adjustment_contrast = 1.18
-	e.adjustment_saturation = 0.96
+	e.adjustment_contrast = 1.12
+	e.adjustment_saturation = 0.95
 	env.environment = e
 	add_child(env)
 	sun = DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-62, -32, 0)
-	sun.light_energy = 0.95
-	sun.light_color = Color(1.0, 0.86, 0.68)
+	sun.rotation_degrees = Vector3(-72, -18, 0)
+	sun.light_energy = 0.55
+	sun.light_color = Color(1.0, 0.9, 0.76)
 	sun.shadow_enabled = true
-	sun.shadow_blur = 1.6
-	sun.shadow_bias = 0.04
+	sun.shadow_opacity = 0.42
+	sun.shadow_blur = 2.2
+	sun.shadow_bias = 0.05
 	sun.directional_shadow_max_distance = 40.0
 	add_child(sun)
 	var fill := DirectionalLight3D.new()
-	fill.rotation_degrees = Vector3(-35, 150, 0)
-	fill.light_energy = 0.12
-	fill.light_color = Color(0.7, 0.8, 1.0)
+	fill.rotation_degrees = Vector3(-40, 160, 0)
+	fill.light_energy = 0.2
+	fill.light_color = Color(0.72, 0.8, 1.0)
 	add_child(fill)
 	cam = Camera3D.new()
-	cam.fov = 35.0
-	cam.near = 0.5
-	cam.far = 80.0
+	cam.fov = CAM_FOV
+	cam.near = 1.0
+	cam.far = 90.0
 	add_child(cam)
-	cam_target = Vector3(10.0, 0.0, 5.5)
-	cam_base = Vector3(10.0, 13.6, 13.0)
+	cam_target = CAM_TARGET
+	var pitch := deg_to_rad(CAM_PITCH)
+	cam_base = CAM_TARGET + Vector3(0, sin(pitch), cos(pitch)) * CAM_DIST
 	cam.look_at_from_position(cam_base, cam_target, Vector3.UP)
 	level_root = Node3D.new()
 	level_root.name = "level"
@@ -107,8 +117,13 @@ func pick(canvas_pt: Vector2) -> Vector2:
 	var cell := Vector2i(int(floor(hi.x)), int(floor(hi.z)))
 	if cell.x >= 0 and cell.y >= 0 and cell.x < Data.COLS and cell.y < Data.ROWS:
 		var kind: String = g.map[cell.y][cell.x]
-		if kind in "MVDCSOABT":
+		if kind in "MVDCSOABTc":
 			return from3(Vector3(cell.x + 0.5, 0, cell.y + 0.5))
+	# customers' heads are high: look at a plane at head height too
+	var head := o + d * ((1.35 - o.y) / d.y)
+	var hc := Vector2i(int(floor(head.x)), int(floor(head.z)))
+	if hc.x >= 0 and hc.y >= 0 and hc.x < Data.COLS and hc.y < Data.ROWS and g.map[hc.y][hc.x] == "c":
+		return from3(Vector3(hc.x + 0.5, 0, hc.y + 0.5))
 	return unproject(canvas_pt)
 
 
@@ -125,7 +140,7 @@ func px_scale(px: Vector2) -> float:
 const LOOKS := [
 	["tiles", "6f86a6", "566b8c", "planks", "a8703a", "8f5a2c", "3f8294", "21404b"],
 	["planks", "7a4a28", "5f3a1f", "carpet", "a63a3a", "7a2528", "b04a34", "4a1f18"],
-	["tiles", "b79a74", "8f6a4c", "planks", "7a4a28", "5f3a1f", "3e7a62", "d9b34a"],
+	["tiles", "a99373", "7d6248", "planks", "7a4a28", "5f3a1f", "3e7a62", "d9b34a"],
 ]
 
 
@@ -166,76 +181,121 @@ func build_level() -> void:
 	var world := g.world
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(1, 1)
+	var L: Array = LOOKS[world]
+	var cap_col := Color(str(L[6])).darkened(0.45).to_html(false)
 	for y in Data.ROWS:
 		for x in Data.COLS:
 			var kind: String = g.map[y][x]
 			var cpos := Vector3(x + 0.5, 0, y + 0.5)
 			if kind == "#":
-				var h := 1.8
-				if y == Data.ROWS - 1 and x < 14:
-					h = 0.5
-				var wall := Models.mi(level_root, Models.rbox(Vector3(1.0, h, 1.0), 0.02, 2), _wall_mat(world, h), Vector3(cpos.x, h / 2.0, cpos.z))
-				wall.name = "wall"
+				var h := 2.0 if y == 0 else (0.35 if y == Data.ROWS - 1 else 1.5)
+				Models.mi(level_root, Models.rbox(Vector3(1.0, h, 1.0), 0.03, 2), _wall_mat(world, h), Vector3(cpos.x, h / 2.0, cpos.z)).name = "wall"
+				Models.mi(level_root, Models.rbox(Vector3(1.04, 0.1, 1.04), 0.04, 2), Models.mat(cap_col, 0.7), Vector3(cpos.x, h + 0.04, cpos.z))
 				continue
 			var checker := (x + y) % 2 == 0
-			var fl := Models.mi(level_root, plane, _floor_mat(world, kind == "q", checker), cpos)
+			var dining := kind in "wTc"
+			var fl := Models.mi(level_root, plane, _floor_mat(world, dining, checker), cpos)
 			fl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			if Data.RULES.has(kind) or Data.CRATES.has(kind) or kind in "XABT":
+			if kind == "c":
+				var chair := Models.chair()
+				chair.position = cpos
+				var table := Vector2i(x, y)
+				for t in g.chair_of:
+					if g.chair_of[t] == table:
+						var dv: Vector2i = (t as Vector2i) - table
+						chair.rotation.y = atan2(float(dv.x), float(dv.y))
+				level_root.add_child(chair)
+				_blob(cpos, 0.62)
+			elif Data.RULES.has(kind) or Data.CRATES.has(kind) or kind in "XABT":
 				var st := Models.station(kind)
 				st.position = cpos
 				level_root.add_child(st)
 				station_nodes[Vector2i(x, y)] = st
-	# stools for the open seats
-	for s in g.seats:
-		var sc: Vector2i = s
-		var stool := Models.stool()
-		stool.position = to3(g._customer_pos(sc))
-		level_root.add_child(stool)
+				_blob(cpos, 1.12)
 	_decorate(world)
 	_ambient_occlusion()
-	for key in g.stations:
-		_prep_station(key)
 	for key in g.plates:
 		plate_nodes[key] = {"node": null, "key": ""}
 
 
-func _prep_station(key: Vector2i) -> void:
-	pass
+# a soft dark blob on the floor under a thing (the real game's "contact shadow")
+func _blob(pos: Vector3, size: float) -> void:
+	if _blob_mat == null:
+		var grad := Gradient.new()
+		grad.set_color(0, Color(0, 0, 0, 0.55))
+		grad.set_color(1, Color(0, 0, 0, 0.0))
+		var gt := GradientTexture2D.new()
+		gt.gradient = grad
+		gt.fill = GradientTexture2D.FILL_RADIAL
+		gt.fill_from = Vector2(0.5, 0.5)
+		gt.fill_to = Vector2(1.0, 0.5)
+		gt.width = 64
+		gt.height = 64
+		_blob_mat = StandardMaterial3D.new()
+		_blob_mat.albedo_texture = gt
+		_blob_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_blob_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_blob_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var q := PlaneMesh.new()
+	q.size = Vector2(size * 1.5, size * 1.5)
+	var m := MeshInstance3D.new()
+	m.mesh = q
+	m.material_override = _blob_mat
+	m.position = Vector3(pos.x + 0.06, 0.012, pos.z + 0.08)
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	level_root.add_child(m)
 
 
 func _decorate(world: int) -> void:
-	# things on the walls and in the dining room, so it feels like a place
-	var xs := [3.0, 6.5, 11.0]
+	var cols := Data.COLS
+	# windows with sky glass in the north wall, pillars in between
+	var sky := Gradient.new()
+	sky.set_color(0, Color("bfe9ff"))
+	sky.set_color(1, Color("5fb4e8"))
+	var skyt := GradientTexture2D.new()
+	skyt.gradient = sky
+	skyt.fill_from = Vector2(0, 0)
+	skyt.fill_to = Vector2(0, 1)
+	skyt.width = 4
+	skyt.height = 64
+	var glass := StandardMaterial3D.new()
+	glass.albedo_texture = skyt
+	glass.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	for i in 3:
+		var wx := 3.0 + i * 5.0
+		var frame := Models.mi(level_root, Models.rbox(Vector3(2.3, 1.15, 0.12), 0.05, 2), Models.mat("2b3445", 0.6), Vector3(wx, 1.15, 0.98))
+		frame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var pane := Models.mi(level_root, PlaneMesh.new(), glass, Vector3(wx, 1.15, 1.05), Vector3(90, 0, 0), Vector3(2.0, 1, 0.9))
+		pane.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		Models.mi(level_root, Models.rbox(Vector3(0.07, 0.95, 0.05), 0.02, 2), Models.mat("2b3445", 0.6), Vector3(wx, 1.15, 1.08))
+	for px in [1.5, 5.0, 8.5, 12.0, 14.5]:
+		Models.mi(level_root, Models.cyl(0.32, 0.34, 2.0), Models.mat("33607a" if world == 0 else ("5a2a22" if world == 1 else "2c5a48"), 0.7), Vector3(px, 1.0, 0.82))
+		Models.mi(level_root, Models.cyl(0.4, 0.4, 0.14), Models.mat("1d2530", 0.6), Vector3(px, 0.07, 0.82))
+	# hanging lamps on long dark cords
+	for lx in [4.7, 8.5, 12.3]:
 		var l := Models.lamp(["ff8a5c", "ffd166", "7fd6c2"][world])
-		l.position = Vector3(xs[i] + 0.5, 1.28, 1.7)
+		l.position = Vector3(lx, 2.55, 3.3)
 		level_root.add_child(l)
 		l.get_child(1).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var shelf := Models.shelf()
-	shelf.position = Vector3(8.2, 1.35, 1.14)
-	level_root.add_child(shelf)
+	# a sign and a clock on the pass wall, plants, a bin of cutlery
 	var clock := Models.clock()
-	clock.position = Vector3(5.6, 1.35, 1.04)
+	clock.position = Vector3(cols - 2.0, 1.5, 0.98)
 	level_root.add_child(clock)
-	var pan := Models.hanging_pan()
-	pan.position = Vector3(13.0, 1.2, 1.1)
-	pan.rotation_degrees = Vector3(0, 0, 0)
-	level_root.add_child(pan)
-	var plant := Models.plant()
-	plant.position = Vector3(18.4, 0, 1.6)
-	level_root.add_child(plant)
-	var plant2 := Models.plant()
-	plant2.position = Vector3(14.5, 0, 10.4)
-	level_root.add_child(plant2)
-	var table := Models.table_and_chairs()
-	table.position = Vector3(17.2, 0, 10.2)
-	level_root.add_child(table)
+	for p in [Vector3(1.6, 0, 1.7), Vector3(cols - 1.6, 0, 1.7)]:
+		var plant := Models.plant()
+		plant.position = p
+		level_root.add_child(plant)
+		_blob(p, 0.6)
+	var shelf := Models.shelf()
+	shelf.position = Vector3(1.0, 1.4, 6.0)
+	shelf.rotation_degrees = Vector3(0, 90, 0)
+	level_root.add_child(shelf)
 
 
 func _ambient_occlusion() -> void:
-	# soft dark gradients where walls meet the floor (cheap ambient occlusion)
+	# soft dark gradients where walls meet the floor
 	var grad := Gradient.new()
-	grad.set_color(0, Color(0, 0, 0, 0.42))
+	grad.set_color(0, Color(0, 0, 0, 0.5))
 	grad.set_color(1, Color(0, 0, 0, 0.0))
 	var gt := GradientTexture2D.new()
 	gt.gradient = grad
@@ -250,12 +310,12 @@ func _ambient_occlusion() -> void:
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var quad := PlaneMesh.new()
 	quad.size = Vector2(1, 1)
-	# north wall: gradient runs from the wall (z=1) into the room
-	_ao_strip(quad, m, Vector3(10.0, 0.012, 1.45), Vector2(20, 0.9), 0.0)
-	_ao_strip(quad, m, Vector3(0.5 + 0.45, 0.012, 5.5), Vector2(0.9, 9.0), 90.0)
-	_ao_strip(quad, m, Vector3(19.5 - 0.45, 0.012, 5.5), Vector2(0.9, 9.0), -90.0)
-	_ao_strip(quad, m, Vector3(7.0, 0.012, 9.55), Vector2(14, 0.9), 180.0)
-	_ao_strip(quad, m, Vector3(14.45, 0.012, 5.5), Vector2(0.9, 9.0), -90.0)
+	var w := float(Data.COLS)
+	var h := float(Data.ROWS)
+	_ao_strip(quad, m, Vector3(w / 2.0, 0.013, 1.5), Vector2(w - 2.0, 1.0), 0.0)
+	_ao_strip(quad, m, Vector3(1.5, 0.013, h / 2.0), Vector2(1.0, h - 2.0), 90.0)
+	_ao_strip(quad, m, Vector3(w - 1.5, 0.013, h / 2.0), Vector2(1.0, h - 2.0), -90.0)
+	_ao_strip(quad, m, Vector3(w / 2.0, 0.013, h - 1.5), Vector2(w - 2.0, 1.0), 180.0)
 
 
 func _ao_strip(mesh: Mesh, m: Material, pos: Vector3, size: Vector2, yaw: float) -> void:
@@ -453,6 +513,11 @@ func _set_face(head: Node3D, eyes_tex: String, mouth_tex: String) -> void:
 	mouth.pixel_size = 0.14 / float(mouth.texture.get_width())
 
 
+func _back(x: float) -> float:
+	var q := clampf(x, 0.0, 1.0)
+	return 1.0 + 2.70158 * pow(q - 1.0, 3.0) + 1.70158 * pow(q - 1.0, 2.0)
+
+
 func _cust_key(c: Dictionary) -> String:
 	var seat: Vector2i = c["seat"]
 	return "%d_%d_%d_%s_%s" % [seat.x, seat.y, int(c["look"]), str(c["order"]), str(c["vip"])]
@@ -478,33 +543,29 @@ func _sync_customers(delta: float) -> void:
 		var seat: Vector2i = c["seat"]
 		var st: String = c["st"]
 		var ct: float = c["t"]
-		var slide := 0.0
 		var hop := 0.0
 		var scl := 1.0
 		var wiggle := 0.0
-		if ct < 0.8:
-			var k := 1.0 - (1.0 - clampf(ct / 0.8, 0.0, 1.0)) * (1.0 - clampf(ct / 0.8, 0.0, 1.0)) * (1.0 - clampf(ct / 0.8, 0.0, 1.0))
-			slide = (1.0 - k) * 3.0
-			hop = absf(sin(ct * 16.0)) * 0.1 * (1.0 - k)
+		if ct < 0.6:
+			scl = maxf(0.01, _back(ct / 0.5))
+			hop = absf(sin(ct * 14.0)) * 0.08 * (1.0 - ct / 0.6)
 		if st == "happy":
-			hop = absf(sin(ct * 9.0)) * 0.16 * maxf(0.0, 1.0 - ct * 0.8)
+			hop = absf(sin(ct * 9.0)) * 0.14 * maxf(0.0, 1.0 - ct * 0.8)
 			if ct > 0.7:
-				var e2 := (ct - 0.7) / 0.5
-				slide = e2 * e2 * 3.0
-				scl = maxf(0.01, 1.0 - e2 * 0.9)
+				scl = maxf(0.01, 1.0 - (ct - 0.7) / 0.5)
 		elif st == "angry":
 			wiggle = sin(ct * 40.0) * 0.06 * maxf(0.0, 1.0 - ct)
 			if ct > 0.7:
-				var e3 := (ct - 0.7) / 0.5
-				slide = e3 * e3 * 3.0
-				scl = maxf(0.01, 1.0 - e3 * 0.9)
+				scl = maxf(0.01, 1.0 - (ct - 0.7) / 0.5)
 		var base := to3(g._customer_pos(seat))
-		n.position = base + Vector3(slide, hop, 0)
-		n.rotation.y = deg_to_rad(-48.0) + wiggle
+		n.position = base + Vector3(0, hop, 0)
+		var chair_cell: Vector2i = g.chair_of.get(seat, seat)
+		var dv: Vector2i = seat - chair_cell
+		n.rotation.y = atan2(float(dv.x), float(dv.y)) + wiggle
 		n.scale = Vector3.ONE * scl
 		var frac: float = float(c["pat"]) / float(c["max"])
 		var body: Node3D = n.get_node("body")
-		body.position.y = 0.68 + sin(t * 2.2 + seat.y) * 0.008
+		body.position.y = 0.52 + sin(t * 2.2 + seat.y) * 0.008
 		var head: Node3D = n.get_node("head")
 		var blink := fmod(t + seat.y * 0.7, 4.0) > 3.85
 		var eyes := "eyes_open"

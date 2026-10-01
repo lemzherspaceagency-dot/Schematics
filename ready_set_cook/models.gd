@@ -239,9 +239,7 @@ static func station(kind: String) -> Node3D:
 		"X":
 			counter_base(root)
 		"T":
-			counter_base(root)
-			mi(root, rbox(Vector3(0.7, 0.02, 0.5), 0.01), mat("ffffff", 0.6), Vector3(0, 0.885, 0.0))
-			mi(root, sphere(0.14), mat("f4f6fb", 0.4), Vector3(0, 0.9, 0.0), Vector3.ZERO, Vector3(1, 0.15, 1))
+			_table(root)
 		"M", "V", "D":
 			_crate(root, kind)
 		"C":
@@ -269,6 +267,29 @@ static func station(kind: String) -> Node3D:
 				var a := i * PI / 2.0 + 0.4
 				mi(root, rbox(Vector3(0.03, 0.55, 0.03), 0.01), mat("4d566c", 0.5), Vector3(cos(a) * 0.3, 0.38, sin(a) * 0.3 + 0.0), Vector3(0, 0, 0))
 	return root
+
+
+static func _table(root: Node3D) -> void:
+	mi(root, cyl(0.07, 0.1, 0.66), mat("7b4a26", 0.7), Vector3(0, 0.33, 0))
+	mi(root, cyl(0.3, 0.3, 0.05), mat("7b4a26", 0.7), Vector3(0, 0.03, 0))
+	mi(root, rbox(Vector3(0.98, 0.07, 0.98), 0.035), mat("d9a35e", 0.55), Vector3(0, 0.7, 0))
+	mi(root, rbox(Vector3(0.94, 0.02, 0.94), 0.01), mat("c0392b", 0.8), Vector3(0, 0.75, 0))
+	mi(root, rbox(Vector3(0.46, 0.012, 0.46), 0.004), mat("f6f1e6", 0.8), Vector3(0, 0.763, 0), Vector3(0, 45, 0))
+	mi(root, cyl(0.13, 0.11, 0.03), mat("f6f8fc", 0.25), Vector3(0, 0.78, 0.18))
+	mi(root, cyl(0.05, 0.045, 0.1), mat("bfe3ef", 0.15), Vector3(0.3, 0.82, -0.28))
+
+
+# a diner chair: seat + back. Faces +Z (the sitter looks towards +Z), the back is at -Z.
+static func chair() -> Node3D:
+	var r := Node3D.new()
+	r.name = "chair"
+	var wood := mat("b8402f", 0.6)
+	mi(r, rbox(Vector3(0.62, 0.09, 0.6), 0.04), wood, Vector3(0, 0.44, 0))
+	mi(r, rbox(Vector3(0.62, 0.5, 0.08), 0.04), wood, Vector3(0, 0.74, -0.28))
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			mi(r, cyl(0.035, 0.03, 0.42), mat("5a2a1e", 0.7), Vector3(sx * 0.25, 0.21, sz * 0.24))
+	return r
 
 
 static func _crate(root: Node3D, kind: String) -> void:
@@ -542,13 +563,16 @@ static func customer(look: int, vip: bool) -> Node3D:
 	var skin: String = CUST_SKIN[look % 6]
 	var hair: String = CUST_HAIR[look % 6]
 	var shirt: String = CUST_SHIRT[look % 6]
-	var body := node(root, "body", Vector3(0, 0.68, 0))
+	for sx in [-1.0, 1.0]:
+		mi(root, capsule(0.085, 0.42), mat("3b4466", 0.7), Vector3(sx * 0.13, 0.46, 0.16), Vector3(90, 0, 0))
+		mi(root, capsule(0.075, 0.38), mat("3b4466", 0.7), Vector3(sx * 0.13, 0.22, 0.36))
+	var body := node(root, "body", Vector3(0, 0.52, 0))
 	mi(body, capsule(0.25, 0.6), mat(shirt, 0.65), Vector3(0, 0.22, 0), Vector3.ZERO, Vector3(1.0, 1.0, 0.9))
 	for sx in [-1.0, 1.0]:
 		var arm := node(body, "arm_l" if sx < 0 else "arm_r", Vector3(sx * 0.27, 0.4, 0))
 		mi(arm, capsule(0.08, 0.34), mat(shirt, 0.65), Vector3(sx * 0.02, -0.12, 0.08), Vector3(-50, 0, sx * 6))
 		mi(arm, sphere(0.09), mat(skin, 0.5), Vector3(sx * 0.04, -0.27, 0.2))
-	var head := node(root, "head", Vector3(0, 1.38, 0))
+	var head := node(root, "head", Vector3(0, 1.22, 0))
 	mi(head, sphere(0.285), mat(skin, 0.45), Vector3.ZERO, Vector3.ZERO, Vector3(1.0, 0.94, 0.96))
 	for sx in [-1.0, 1.0]:
 		mi(head, sphere(0.06), mat(skin, 0.45), Vector3(sx * 0.28, -0.01, 0.0))
@@ -619,7 +643,7 @@ static func table_and_chairs() -> Node3D:
 
 static func lamp(hex: String = "ff8a5c") -> Node3D:
 	var r := Node3D.new()
-	mi(r, cyl(0.012, 0.012, 0.9), mat("2a2c3a", 0.5), Vector3(0, 0.45, 0))
+	mi(r, cyl(0.014, 0.014, 3.4), mat("1c1c26", 0.5), Vector3(0, 1.7, 0))
 	mi(r, sphere(0.2, true), mat(hex, 0.4), Vector3(0, -0.02, 0), Vector3.ZERO, Vector3(1, 0.9, 1))
 	mi(r, sphere(0.09), mat("fff1c0", 0.3, 0.0, 3.0), Vector3(0, -0.04, 0))
 	return r

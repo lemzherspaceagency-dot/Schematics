@@ -2,8 +2,8 @@ class_name Data
 extends RefCounted
 # All the tweakable game content lives here: machines, recipes, worlds, levels, upgrades, customisation.
 
-const COLS := 20
-const ROWS := 11
+const COLS := 16
+const ROWS := 9
 const MAX_PLAYERS := 4
 
 # Timed machines. "map" = what goes in -> what comes out.
@@ -24,61 +24,56 @@ const RECIPES := {
 	"stew": {"name": "Stew", "items": ["meat_cooked", "veg_cook"], "price": 28, "steps": "Meat > Pan + Veg > Chop > Pan"},
 }
 
-# Three kitchens. Legend: M meat, V veg, D dough crate | C chop board, S pan, O oven, A plate, B bin
-# X counter, T customer seat (always column 13), q dining carpet, # wall, . floor
+# Three restaurants, each ONE room (16 x 9): dining with tables and chairs, a pass counter, and the kitchen.
+# Legend: M meat, V veg, D dough crate | C chop board, S pan, O oven, A plate, B bin | X counter
+# T table (serve here), c chair (the customer sits here) | . tile floor, w wood floor | # wall
 const WORLDS := [
 	{
-		"name": "Cozy Diner", "blurb": "Wide open and friendly.",
+		"name": "Cozy Diner", "blurb": "Tables up front, kitchen at the back.",
 		"top": "ffbe6b", "bot": "f0506e",
-		"spawns": [Vector2i(5, 5), Vector2i(7, 5), Vector2i(6, 3), Vector2i(8, 3)],
+		"spawns": [Vector2i(6, 6), Vector2i(8, 6), Vector2i(4, 6), Vector2i(10, 6)],
 		"map": [
-			"####################",
-			"#MVDXBXXOOXXXXqqqqq#",
-			"#............Tqqqqq#",
-			"#............Xqqqqq#",
-			"#..CC..AA.SS.Tqqqqq#",
-			"#............Xqqqqq#",
-			"#..CC..XX.SS.Tqqqqq#",
-			"#............Xqqqqq#",
-			"#............Tqqqqq#",
-			"#............Xqqqqq#",
-			"##############qqqqq#",
+			"################",
+			"#wwcwwcwwwcwwcw#",
+			"#wwTwwTwwwTwwTw#",
+			"#wwwwwwwwwwwwww#",
+			"#XXAAwXXXXwAAXX#",
+			"#..............#",
+			"#..............#",
+			"#MVDBSSOOCCSSCC#",
+			"################",
 		],
 	},
 	{
-		"name": "Bistro Bay", "blurb": "Tight lanes. Mind your elbows!",
+		"name": "Bistro Bay", "blurb": "Dining on the left, kitchen on the right.",
 		"top": "7fd6c2", "bot": "2a7d85",
-		"spawns": [Vector2i(4, 3), Vector2i(7, 5), Vector2i(4, 7), Vector2i(12, 3)],
+		"spawns": [Vector2i(9, 3), Vector2i(11, 3), Vector2i(12, 4), Vector2i(13, 3)],
 		"map": [
-			"####################",
-			"#XOOXAAXSSXXXXqqqqq#",
-			"#M...........Tqqqqq#",
-			"#V....XX..XX.Xqqqqq#",
-			"#D....C..C...Tqqqqq#",
-			"#.....S..S...Xqqqqq#",
-			"#B....C..C...Tqqqqq#",
-			"#.....S..S...Xqqqqq#",
-			"#....XX..XX..Tqqqqq#",
-			"#............Xqqqqq#",
-			"##############qqqqq#",
+			"################",
+			"#wwwwwwXMVDBOO.#",
+			"#wcTwcwA.......#",
+			"#wwwwTww.......#",
+			"#wcTwwwA.......#",
+			"#wwwwwww.CCSS..#",
+			"#wcTwwwA.......#",
+			"#wwwwwwXCCBSS..#",
+			"################",
 		],
 	},
 	{
-		"name": "Grand Hall", "blurb": "Huge. Run a lot.",
+		"name": "Grand Hall", "blurb": "A long kitchen line between two counters.",
 		"top": "e9a8ff", "bot": "7a2e3f",
-		"spawns": [Vector2i(4, 4), Vector2i(8, 4), Vector2i(4, 6), Vector2i(8, 6)],
+		"spawns": [Vector2i(3, 5), Vector2i(6, 5), Vector2i(9, 5), Vector2i(12, 5)],
 		"map": [
-			"####################",
-			"#MVDBXOOOXXXXXqqqqq#",
-			"#............Tqqqqq#",
-			"#.CCAASSCCSS.Xqqqqq#",
-			"#............Tqqqqq#",
-			"#............Xqqqqq#",
-			"#............Tqqqqq#",
-			"#.CCAASSCCSS.Xqqqqq#",
-			"#............Tqqqqq#",
-			"#............Xqqqqq#",
-			"##############qqqqq#",
+			"################",
+			"#wwcwwcwwcwwcww#",
+			"#wwTwwTwwTwwTww#",
+			"#wwwwwwwwwwwwww#",
+			"#.CCAASSMVDBOO.#",
+			"#.............w#",
+			"#.CCAASSCCSSOO.#",
+			"#..............#",
+			"################",
 		],
 	},
 ]

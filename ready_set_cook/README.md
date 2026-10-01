@@ -42,6 +42,10 @@ The host runs the whole kitchen, joiners send their input and see the result liv
 and credited stars on their own accounts. You need UDP port 24680 reachable (same Wi-Fi works; over the internet use port-forwarding).
 ENet isn't available in browsers, so online play is for desktop/Android builds. I tested host+client over localhost; I could not test over a real network.
 
+## The restaurants
+Each of the 3 restaurants is one 16 x 9 room (edit `WORLDS` in `data.gd`, legend at the top of that list): a dining area with tables (`T`) and chairs (`c`) where the customers
+sit, a pass counter with plate stations, and the kitchen line. The camera is almost straight down with a little perspective (`CAM_*` constants in `kitchen_view.gd`).
+
 ## Levels
 15 levels in 3 kitchens: **Cozy Diner** (open), **Bistro Bay** (tight lanes), **Grand Hall** (huge, long walks). Earn up to 3 stars per level
 (a star on a level unlocks the next). Spend coins on 5 upgrades in the shop (walk speed, chop speed, cook speed, patience, tips).

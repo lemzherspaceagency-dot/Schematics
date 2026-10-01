@@ -37,7 +37,8 @@ var map: Array = []
 var astar := AStarGrid2D.new()
 var stations := {}                 # Vector2i -> Dictionary
 var plates := {}                   # Vector2i -> Array of items
-var all_seats: Array = []          # every seat cell on the map (priority order)
+var all_seats: Array = []          # every table on the map (priority order)
+var chair_of := {}                 # table cell -> the chair cell its customer sits on
 var seats: Array = []              # seats open this level
 var chefs: Array[Chef] = []
 var customers: Array = []
@@ -162,19 +163,28 @@ func _setup_map(w: int) -> void:
 	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
 	astar.update()
 	all_seats = []
+	chair_of = {}
 	for y in Data.ROWS:
 		for x in Data.COLS:
 			var k: String = map[y][x]
-			if k != ".":
+			if not (k in ".w"):
 				astar.set_point_solid(Vector2i(x, y), true)
 			if k == "T":
 				all_seats.append(Vector2i(x, y))
-	# open seats are taken centre-out
+	# every table gets the chair standing next to it (north first, so customers face the camera)
+	for t in all_seats:
+		var tc: Vector2i = t
+		for d in [Vector2i(0, -1), Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, 1)]:
+			var n: Vector2i = tc + (d as Vector2i)
+			if n.x >= 0 and n.y >= 0 and n.x < Data.COLS and n.y < Data.ROWS and map[n.y][n.x] == "c" and not chair_of.values().has(n):
+				chair_of[tc] = n
+				break
+	# tables are filled centre-out
 	var mid := 0.0
 	for s in all_seats:
-		mid += float(Vector2i(s).y)
+		mid += float(Vector2i(s).x)
 	mid /= maxf(1.0, float(all_seats.size()))
-	all_seats.sort_custom(func(a, b): return absf(float(a.y) - mid) < absf(float(b.y) - mid))
+	all_seats.sort_custom(func(a, b): return absf(float(a.x) - mid) < absf(float(b.x) - mid))
 
 
 func _build_chefs(spawn_list: Array) -> void:
@@ -366,7 +376,7 @@ func _cell_center(c: Vector2i) -> Vector2:
 
 
 func _walkable(c: Vector2i) -> bool:
-	return c.x >= 0 and c.y >= 0 and c.x < Data.COLS and c.y < Data.ROWS and map[c.y][c.x] == "."
+	return c.x >= 0 and c.y >= 0 and c.x < Data.COLS and c.y < Data.ROWS and map[c.y][c.x] in ".w"
 
 
 func _is_interactive(c: Vector2i) -> bool:
@@ -417,27 +427,19 @@ func _chef_tap(ch: Chef, p: Vector2) -> void:
 		return
 	var kind: String = map[cell.y][cell.x]
 	var start := _cell_of(ch.pos)
-	if kind == ".":
+	if kind in ".w":
 		ch.path = _path(ch, start, cell)
 		ch.target = NO_CELL
 		return
-	if kind == "q" or kind == "T":
-		# tapping a customer or their table: pick the nearest open seat by row
-		var best_seat := NO_CELL
-		var best_d := 99
-		for s in seats:
-			var sc: Vector2i = s
-			var d := absi(sc.y - cell.y)
-			if d < best_d:
-				best_d = d
-				best_seat = sc
-		if best_seat == NO_CELL or best_d > 1:
-			return
-		cell = best_seat
-		kind = "T"
-	if kind == "#" or kind == "X":
-		return
+	if kind == "c":
+		# tapping a customer's chair: that table
+		for t in chair_of:
+			if chair_of[t] == cell:
+				cell = t
+				kind = "T"
 	if kind == "T" and not seats.has(cell):
+		return
+	if not (kind in "MVDCSOABT"):
 		return
 	_walk_to_station(ch, cell, start)
 
@@ -687,7 +689,7 @@ func _spawn_customer() -> void:
 
 
 func _customer_pos(seat: Vector2i) -> Vector2:
-	return _cell_center(seat) + Vector2(TILE * 1.45, 0)
+	return _cell_center(chair_of.get(seat, seat))
 
 
 # ====================================================================
