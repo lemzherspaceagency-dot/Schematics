@@ -197,8 +197,26 @@ static func asset(asset_name: String) -> Node3D:
 		if ps is PackedScene:
 			var inst := (ps as PackedScene).instantiate()
 			if inst is Node3D:
+				_polish(inst)
 				return inst
 	return null
+
+
+# give imported models the same look as the built-in ones: ink outline + grunge on every solid material
+static func _polish(n: Node) -> void:
+	if n is MeshInstance3D:
+		var mi_ := n as MeshInstance3D
+		if mi_.mesh != null:
+			for i in mi_.mesh.get_surface_count():
+				var src := mi_.mesh.surface_get_material(i)
+				if src is StandardMaterial3D:
+					var d := (src as StandardMaterial3D).duplicate() as StandardMaterial3D
+					if not d.emission_enabled:
+						_paint(d)
+						d.next_pass = outline()
+					mi_.set_surface_override_material(i, d)
+	for c in n.get_children():
+		_polish(c)
 
 
 const ASSET_NAMES := {"X": "counter", "T": "table", "M": "crate_meat", "V": "crate_veg", "D": "crate_dough",
@@ -254,7 +272,11 @@ static func station(kind: String) -> Node3D:
 	if ASSET_NAMES.has(kind):
 		var custom := asset(str(ASSET_NAMES[kind]))
 		if custom != null:
-			root.add_child(custom)
+			# hoist the model's parts so named ones (pot, flames, glow) are direct children
+			for c in custom.get_children():
+				custom.remove_child(c)
+				root.add_child(c)
+			custom.free()
 			return root
 	match kind:
 		"X":

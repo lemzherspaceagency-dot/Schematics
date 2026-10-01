@@ -70,6 +70,10 @@ sitting on bar stools, wall lamps, shelves, plants and a dining table. Everythin
 - Faces are small SVG decals (`eyes_*`, `mouth_*` in `art/`), swapped for blinking and moods.
 - Change the camera in `kitchen_view.gd` (`cam_base`, `cam_target`, `fov`), the mood of the lighting in `_ready()` there.
 
+## Blender-made models
+`blender_src/make_assets.py` builds the 26 models in `assets/` (counters, tables, chairs, crates, stove with pot and flames, oven, plates, bin, all ingredients and dishes)
+with Blender 5's Python module (`pip install bpy`, then `python3 blender_src/make_assets.py`). Edit the script, re-run, re-import in Godot. Chefs and customers are still built in code.
+
 ## Better art later: drop-in models
 Put CC0 `.glb` models in `assets/` (names in `assets/README.md`) and they replace the built-in primitive models automatically.
 
