@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bxukk2rpubyx"
-path="res://.godot/imported/wall.svg-d1f1fe15be1cbb6543f7fac27ced2da3.ctex"
+uid="uid://dgxkhhp5d3j0t"
+path="res://.godot/imported/carpet_0b.svg-d6cb4240066745b098fa4e92a14a60d5.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/wall.svg"
-dest_files=["res://.godot/imported/wall.svg-d1f1fe15be1cbb6543f7fac27ced2da3.ctex"]
+source_file="res://art/carpet_0b.svg"
+dest_files=["res://.godot/imported/carpet_0b.svg-d6cb4240066745b098fa4e92a14a60d5.ctex"]
 
 [params]
 

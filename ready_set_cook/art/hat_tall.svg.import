@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cpl3lshems84i"
-path="res://.godot/imported/floor_b.svg-b7b508691599ef53bfe4114635f933a3.ctex"
+uid="uid://bnbr2gunohipp"
+path="res://.godot/imported/hat_tall.svg-3ebeb71689eaa33d148b4ebbae31cd5a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/floor_b.svg"
-dest_files=["res://.godot/imported/floor_b.svg-b7b508691599ef53bfe4114635f933a3.ctex"]
+source_file="res://art/hat_tall.svg"
+dest_files=["res://.godot/imported/hat_tall.svg-3ebeb71689eaa33d148b4ebbae31cd5a.ctex"]
 
 [params]
 

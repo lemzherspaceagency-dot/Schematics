@@ -55,47 +55,6 @@ def body(shirt, skin):
 
 
 def make(out):
-    # ---- chef
-    s = S(128, 150)
-    cx, cy = 64, 100
-    # hat
-    s.rect(30, 46, 68, 26, 8, s.grad("#ffffff", "#dde2ee"))
-    s.circle(44, 34, 24, s.grad("#ffffff", "#e6eaf4"))
-    s.circle(84, 34, 24, s.grad("#ffffff", "#e6eaf4"))
-    s.circle(64, 24, 28, s.grad("#ffffff", "#e6eaf4"))
-    s.line(48, 52, 48, 70, "#c9cfde", 3)
-    s.line(64, 52, 64, 70, "#c9cfde", 3)
-    s.line(80, 52, 80, 70, "#c9cfde", 3)
-    s.shine(50, 16, 12, 5, 0.6)
-    # head
-    s.circle(cx - 40, cy + 2, 9, "#f2c4a0")
-    s.circle(cx + 40, cy + 2, 9, "#f2c4a0")
-    s.circle(cx, cy, 38, s.grad("#ffe3cb", "#f5c9a6"))
-    s.circle(cx - 24, cy + 12, 7, "#ff6b81", None, 0, 0.4)
-    s.circle(cx + 24, cy + 12, 7, "#ff6b81", None, 0, 0.4)
-    s.rect(30, 58, 68, 10, 4, s.grad("#ffffff", "#dde2ee"))
-    s.shine(cx - 18, cy - 16, 10, 4, 0.4)
-    out("chef_head", s)
-
-    s = S(120, 110)
-    s.shadow(60, 102, 40, 6, 0.2)
-    s.path("M12 106 C8 54 26 26 60 26 C94 26 112 54 108 106 Z", s.grad("#ffffff", "#d8deea"))
-    s.rect(20, 76, 80, 28, 8, s.grad("#4cc9f0", "#1d96c4"))     # apron
-    s.path("M44 26 L60 52 L76 26 Z", s.grad("#ff6b6b", "#c9304b"))   # neckerchief
-    for y in (60, 76):
-        s.circle(60, y, 4.5, "#c9cfde", OUT, 3)
-    s.shine(36, 44, 10, 4, 0.5)
-    out("chef_body", s)
-
-    s = S(32, 32)
-    s.circle(16, 16, 12, s.grad("#ffe3cb", "#f0bd98"))
-    s.shine(12, 11, 4, 2, 0.6)
-    out("hand", s)
-    s = S(48, 30)
-    s.path("M4 24 C4 8 18 4 28 6 C40 8 44 14 44 24 Z", s.grad("#5b6bbf", "#343f8a"))
-    s.shine(16, 12, 6, 2.5, 0.5)
-    out("shoe", s)
-
     # ---- customers: 6 looks
     specs = [(SKINS[0], HAIRS[0], SHIRTS[0], 0), (SKINS[1], HAIRS[2], SHIRTS[1], 1), (SKINS[3], HAIRS[3], SHIRTS[2], 2),
              (SKINS[2], HAIRS[1], SHIRTS[3], 3), (SKINS[4], HAIRS[3], SHIRTS[4], 4), (SKINS[5], HAIRS[5], SHIRTS[5], 5)]

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bx4io1gyroa74"
-path="res://.godot/imported/chef_body.svg-37bac40dfa2df3373849682f4bd19f8d.ctex"
+uid="uid://deqilhe4rjmk"
+path="res://.godot/imported/dish_stew.svg-b3741ccea37285e504617c27572c2278.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/chef_body.svg"
-dest_files=["res://.godot/imported/chef_body.svg-37bac40dfa2df3373849682f4bd19f8d.ctex"]
+source_file="res://art/dish_stew.svg"
+dest_files=["res://.godot/imported/dish_stew.svg-b3741ccea37285e504617c27572c2278.ctex"]
 
 [params]
 

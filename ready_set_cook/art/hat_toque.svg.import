@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c8bhwp63opawp"
-path="res://.godot/imported/carpet_a.svg-3d2bc02d3de5fc9f247bce2df645075d.ctex"
+uid="uid://cd8honibaa84f"
+path="res://.godot/imported/hat_toque.svg-9fab6fb80a0045da4ee96e79749335c3.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/carpet_a.svg"
-dest_files=["res://.godot/imported/carpet_a.svg-3d2bc02d3de5fc9f247bce2df645075d.ctex"]
+source_file="res://art/hat_toque.svg"
+dest_files=["res://.godot/imported/hat_toque.svg-9fab6fb80a0045da4ee96e79749335c3.ctex"]
 
 [params]
 

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bchkflgo17xef"
-path="res://.godot/imported/chef_head.svg-f16d4e89620cdf8d9564900611621155.ctex"
+uid="uid://bku75wpddn00j"
+path="res://.godot/imported/wall_2.svg-f94779bfa3c7776644c6893d9c5244cf.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/chef_head.svg"
-dest_files=["res://.godot/imported/chef_head.svg-f16d4e89620cdf8d9564900611621155.ctex"]
+source_file="res://art/wall_2.svg"
+dest_files=["res://.godot/imported/wall_2.svg-f94779bfa3c7776644c6893d9c5244cf.ctex"]
 
 [params]
 

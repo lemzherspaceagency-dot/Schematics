@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cy1kcu6mgscgg"
-path="res://.godot/imported/floor_a.svg-64fc37d32fc2af70ef4cfa4314bf456b.ctex"
+uid="uid://cjkouovde0q55"
+path="res://.godot/imported/hat_bandana.svg-6d40db8d0e63da384a571864d0091f06.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/floor_a.svg"
-dest_files=["res://.godot/imported/floor_a.svg-64fc37d32fc2af70ef4cfa4314bf456b.ctex"]
+source_file="res://art/hat_bandana.svg"
+dest_files=["res://.godot/imported/hat_bandana.svg-6d40db8d0e63da384a571864d0091f06.ctex"]
 
 [params]
 
