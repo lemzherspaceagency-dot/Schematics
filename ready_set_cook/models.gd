@@ -230,7 +230,7 @@ static func _polish(n: Node) -> void:
 						if d.albedo_texture == null:
 							_paint(d)
 						else:
-							d.albedo_color = Color(0.82, 0.82, 0.85)
+							d.albedo_color = Color(0.72, 0.66, 0.6)
 						d.next_pass = outline()
 					mi_.set_surface_override_material(i, d)
 	for c in n.get_children():
@@ -658,34 +658,38 @@ static func _chef(look: Dictionary) -> Node3D:
 	root.name = "chef"
 	var skin := _hex(Data.SKINS, int(look.get("skin", 0)))
 	var jacket := _hex(Data.COLORS, int(look.get("jacket", 0)))
-	var apron := _hex(Data.COLORS, int(look.get("apron", 0)))
-	var scarf := _hex(Data.COLORS, int(look.get("scarf", 0)))
 	var hat_col := _hex(Data.COLORS, int(look.get("hat_col", 0)))
+	var black := "26262e"
 	mi(root, cyl(0.2, 0.2, 0.01), mat("000000", 1.0), Vector3(0, 0.0, 0)).visible = false
-	mi(root, rbox(Vector3(0.17, 0.11, 0.26), 0.05), mat("4a4f7a", 0.5), Vector3(-0.12, 0.06, 0.03)).name = "foot_l"
-	mi(root, rbox(Vector3(0.17, 0.11, 0.26), 0.05), mat("4a4f7a", 0.5), Vector3(0.12, 0.06, 0.03)).name = "foot_r"
+	mi(root, rbox(Vector3(0.2, 0.13, 0.3), 0.06), mat(black, 0.5), Vector3(-0.13, 0.065, 0.04)).name = "foot_l"
+	mi(root, rbox(Vector3(0.2, 0.13, 0.3), 0.06), mat(black, 0.5), Vector3(0.13, 0.065, 0.04)).name = "foot_r"
 	for sx in [-1.0, 1.0]:
-		mi(root, capsule(0.085, 0.36), mat("35405e", 0.7), Vector3(sx * 0.12, 0.26, 0.01)).name = "leg_l" if sx < 0 else "leg_r"
+		mi(root, capsule(0.09, 0.4), mat(black, 0.7), Vector3(sx * 0.13, 0.28, 0.01)).name = "leg_l" if sx < 0 else "leg_r"
 	var body := node(root, "body", Vector3(0, 0.46, 0))
-	mi(body, capsule(0.255, 0.66), mat(jacket, 0.65), Vector3(0, 0.18, 0), Vector3.ZERO, Vector3(1.0, 1.0, 0.92))
-	mi(body, rbox(Vector3(0.38, 0.46, 0.1), 0.05), mat(apron, 0.65), Vector3(0, 0.1, 0.215), Vector3(8, 0, 0))
-	mi(body, rbox(Vector3(0.16, 0.12, 0.03), 0.015), mat("000000", 0.9), Vector3(0, 0.03, 0.258)).material_override = mat(apron, 0.7)
-	mi(body, rbox(Vector3(0.2, 0.2, 0.04), 0.02), mat(scarf, 0.6), Vector3(0, 0.44, 0.2), Vector3(0, 0, 45))
-	for i in 2:
-		mi(body, sphere(0.022), mat("e9edf5", 0.4), Vector3(0, 0.3 - i * 0.12, 0.248))
+	mi(body, capsule(0.275, 0.62), mat(jacket, 0.65), Vector3(0, 0.2, 0), Vector3.ZERO, Vector3(1.0, 1.0, 0.92))
+	# double-breasted front: two plackets crossing, two columns of buttons, a white collar
+	for i in 3:
+		for sx in [-1.0, 1.0]:
+			mi(body, sphere(0.024), mat("8d96aa", 0.35), Vector3(sx * 0.115, 0.34 - i * 0.12, 0.245))
+	mi(body, torus(0.12, 0.2), mat("eef1f7", 0.6), Vector3(0, 0.46, 0.0), Vector3.ZERO, Vector3(1, 0.5, 0.9))
 	for sx in [-1.0, 1.0]:
-		var arm := node(body, "arm_l" if sx < 0 else "arm_r", Vector3(sx * 0.29, 0.38, 0))
-		mi(arm, capsule(0.085, 0.4), mat(jacket, 0.65), Vector3(sx * 0.02, -0.17, 0), Vector3(0, 0, sx * 6))
-		mi(arm, sphere(0.095), mat(skin, 0.5), Vector3(sx * 0.04, -0.4, 0.02))
+		var arm := node(body, "arm_l" if sx < 0 else "arm_r", Vector3(sx * 0.3, 0.4, 0))
+		mi(arm, capsule(0.095, 0.4), mat(jacket, 0.65), Vector3(sx * 0.02, -0.17, 0), Vector3(0, 0, sx * 6))
+		mi(arm, cyl(0.1, 0.1, 0.06), mat("eef1f7", 0.6), Vector3(sx * 0.04, -0.33, 0.0))
+		mi(arm, sphere(0.105), mat(skin, 0.5), Vector3(sx * 0.04, -0.42, 0.02))
 	var head := node(root, "head", Vector3(0, 1.1, 0))
-	mi(head, sphere(0.285), mat(skin, 0.45), Vector3.ZERO, Vector3.ZERO, Vector3(1.0, 0.94, 0.96))
+	mi(head, sphere(0.34), mat(skin, 0.45), Vector3.ZERO, Vector3.ZERO, Vector3(1.0, 0.94, 0.96))
 	for sx in [-1.0, 1.0]:
-		mi(head, sphere(0.06), mat(skin, 0.45), Vector3(sx * 0.28, -0.01, 0.0))
-	mi(head, sphere(0.045), mat(skin, 0.4), Vector3(0, -0.04, 0.27))
-	decal(head, "eyes_open", 0.42, Vector3(0, 0.03, 0.29), "eyes")
-	decal(head, "mouth_smile", 0.14, Vector3(0, -0.115, 0.275), "mouth")
-	_accessory(head, str(Data.ACCS[clampi(int(look.get("acc", 0)), 0, Data.ACCS.size() - 1)]))
-	_hat(head, str(Data.HATS[clampi(int(look.get("hat", 0)), 0, Data.HATS.size() - 1)]), hat_col)
+		mi(head, sphere(0.07), mat(skin, 0.45), Vector3(sx * 0.33, -0.01, 0.0))
+	mi(head, sphere(0.075), mat(skin, 0.4).duplicate(), Vector3(0, -0.05, 0.32))
+	decal(head, "eyes_open", 0.5, Vector3(0, 0.04, 0.345), "eyes")
+	decal(head, "mouth_smile", 0.17, Vector3(0, -0.14, 0.325), "mouth")
+	var gear := node(head, "gear", Vector3(0, 0.0, 0.05))
+	gear.scale = Vector3.ONE * 1.18
+	_accessory(gear, str(Data.ACCS[clampi(int(look.get("acc", 0)), 0, Data.ACCS.size() - 1)]))
+	var hatn := node(head, "hat", Vector3(0, 0.05, 0))
+	hatn.scale = Vector3.ONE * 1.2
+	_hat(hatn, str(Data.HATS[clampi(int(look.get("hat", 0)), 0, Data.HATS.size() - 1)]), hat_col)
 	node(root, "held", Vector3(0, 1.95, 0))
 	return root
 
@@ -872,3 +876,59 @@ static func clock() -> Node3D:
 	mi(r, rbox(Vector3(0.02, 0.15, 0.015), 0.005), mat("2a2c3a", 0.4), Vector3(0, 0.06, 0.04))
 	mi(r, rbox(Vector3(0.13, 0.02, 0.015), 0.005), mat("2a2c3a", 0.4), Vector3(0.05, 0, 0.045))
 	return r
+
+
+# ---- curved counters: rounded counter ends and corners (a 2D shape extruded) ----
+static func _extrude(poly: PackedVector2Array, y0: float, y1: float) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var c := Vector2.ZERO
+	for p in poly:
+		c += p
+	c /= float(poly.size())
+	for i in poly.size():
+		var a := poly[i]
+		var b := poly[(i + 1) % poly.size()]
+		# top (the material is double sided, so winding does not matter)
+		st.set_normal(Vector3.UP)
+		st.add_vertex(Vector3(c.x, y1, c.y))
+		st.add_vertex(Vector3(b.x, y1, b.y))
+		st.add_vertex(Vector3(a.x, y1, a.y))
+		# side
+		var n := Vector3(b.y - a.y, 0, -(b.x - a.x)).normalized()
+		st.set_normal(n)
+		st.add_vertex(Vector3(a.x, y0, a.y))
+		st.add_vertex(Vector3(a.x, y1, a.y))
+		st.add_vertex(Vector3(b.x, y1, b.y))
+		st.add_vertex(Vector3(a.x, y0, a.y))
+		st.add_vertex(Vector3(b.x, y1, b.y))
+		st.add_vertex(Vector3(b.x, y0, b.y))
+	return st.commit()
+
+
+static func counter_round(shape: String, yaw_deg: float) -> Node3D:
+	var poly := PackedVector2Array()
+	if shape == "end":      # neighbour on +x, rounded bullnose at the other end
+		poly.append(Vector2(0.5, -0.5))
+		poly.append(Vector2(0.5, 0.5))
+		poly.append(Vector2(0.0, 0.5))
+		for i in range(1, 12):
+			var a := PI / 2.0 + PI * float(i) / 12.0
+			poly.append(Vector2(cos(a) * 0.5, sin(a) * 0.5))
+		poly.append(Vector2(0.0, -0.5))
+	else:                   # corner: neighbours on +x and +z, quarter-disc outside corner
+		poly.append(Vector2(0.5, 0.5))
+		for i in range(0, 13):
+			var a := PI + (PI / 2.0) * float(i) / 12.0
+			poly.append(Vector2(0.5 + cos(a), 0.5 + sin(a)))
+	var root := Node3D.new()
+	root.name = "station_X"
+	var body_m := mat("bfc4cf", 0.6).duplicate() as StandardMaterial3D
+	body_m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var top_m := mat("c98d54", 0.6).duplicate() as StandardMaterial3D
+	top_m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var body := mi(root, _extrude(poly, 0.0, TOP - 0.06), body_m)
+	var top := mi(root, _extrude(poly, TOP - 0.06, TOP), top_m)
+	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	root.rotation_degrees.y = yaw_deg
+	return root

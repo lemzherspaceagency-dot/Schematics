@@ -428,6 +428,40 @@ func _draw_fx_lists(plist: Array, ulist: Array) -> void:
 		_ctext(q["text"], q["p"], int(float(q["size"]) * sc), col)
 
 
+var _grain_tex: ImageTexture
+
+
+# dirty paper grain + scratches over the whole picture so nothing looks too clean
+func _draw_grain() -> void:
+	if _grain_tex == null:
+		var n := FastNoiseLite.new()
+		n.frequency = 0.9
+		var n2 := FastNoiseLite.new()
+		n2.frequency = 0.012
+		n2.seed = 7
+		var img := Image.create(320, 180, false, Image.FORMAT_RGBA8)
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 11
+		for y in 180:
+			for x in 320:
+				var v := 0.5 + 0.5 * n.get_noise_2d(x, y)
+				var blot := 0.5 + 0.5 * n2.get_noise_2d(x, y)
+				var a := clampf((v - 0.52) * 0.5, 0.0, 0.2) + clampf((blot - 0.6) * 0.5, 0.0, 0.14)
+				img.set_pixel(x, y, Color(0.1, 0.06, 0.04, a))
+		for i in 70:
+			var sx := rng.randi_range(0, 319)
+			var sy := rng.randi_range(0, 179)
+			var ln := rng.randi_range(3, 14)
+			var dx := rng.randf_range(-1.0, 1.0)
+			var dy := rng.randf_range(-0.4, 0.4)
+			for j in ln:
+				var px := clampi(sx + int(dx * j), 0, 319)
+				var py := clampi(sy + int(dy * j), 0, 179)
+				img.set_pixel(px, py, Color(0.08, 0.05, 0.03, 0.35))
+		_grain_tex = ImageTexture.create_from_image(img)
+	draw_texture_rect(_grain_tex, Rect2(0, 0, 1280, 720), false)
+
+
 func _draw_vignette() -> void:
 	var c0 := Color(0, 0, 0, 0.45)
 	var c1 := Color(0, 0, 0, 0)

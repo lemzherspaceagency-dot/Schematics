@@ -33,6 +33,7 @@ func _draw() -> void:
 			_draw_pause()
 	for q in g.coin_fx:
 		_spr("coin", q["p"], 0.5 * (0.8 + 0.2 * sin(float(q["life"]) * 20.0)))
+	_draw_grain()
 	_draw_vignette()
 	if g.fade > 0.0:
 		draw_rect(Rect2(-20, -20, W + 40, H + 40), Color(0.12, 0.07, 0.1, g.fade))
@@ -68,9 +69,8 @@ func _draw_hud() -> void:
 			break
 	_icon_button(Rect2(12, 10, 56, 50), "pause", "bars")
 	_icon_button(Rect2(78, 10, 56, 50), "recipes", "help")
-	_nine("panel", Rect2(146, 8, 226, 58), C_DARK, 36.0, 36.0, 36.0)
 	_spr("coin", Vector2(176, 37), 0.95 * (1.0 + g.hud_bump * 0.3))
-	_txt("%d / %d" % [int(round(g.earned_shown)), nxt], Vector2(204, 48), 30, C_GOLD)
+	_txt("%d / %d" % [int(round(g.earned_shown)), nxt], Vector2(204, 50), 34, Color.WHITE)
 	var gmax := float(goals[2])
 	var bar := Rect2(410, 28, 440, 16)
 	_bar(bar, g.earned_shown / gmax, C_GOLD)
@@ -90,10 +90,8 @@ func _draw_hud() -> void:
 	var urgent: bool = g.time_left < 20.0
 	var tcol := Color.WHITE if not urgent else (C_BAD if int(t_global * 4.0) % 2 == 0 else Color.WHITE)
 	var tsc := 1.0 + (sin(t_global * 8.0) * 0.05 if urgent else 0.0)
-	_nine("panel", Rect2(1020, 8, 180, 58), C_DARK, 36.0, 36.0, 36.0)
-	_spr("wall_clock", Vector2(1054, 37), 0.34, sin(t_global * 3.0) * 0.05 if urgent else 0.0)
-	_xf_about(Vector2(1130, 37), tsc, tsc)
-	_ctext("%d:%02d" % [secs / 60, secs % 60], Vector2(1132, 50), 34, tcol)
+	_xf_about(Vector2(1120, 37), tsc, tsc)
+	_ctext("%d:%02d" % [secs / 60, secs % 60], Vector2(1120, 52), 40, tcol)
 	_xf_reset()
 	_icon_button(Rect2(1212, 10, 56, 50), "pause", "pause")
 	var tut: String = g._tutorial_text()
@@ -102,14 +100,14 @@ func _draw_hud() -> void:
 		_ctext(tut, Vector2(500, 632), 22, Color.WHITE)
 	# recipe cheat-sheet along the bottom
 	var recs: Array = g.lv["recipes"]
-	draw_rect(Rect2(0, 664, W, 56), Color("2f8fe0"))
-	draw_rect(Rect2(0, 664, W, 4), Color("8fd0ff"))
-	draw_rect(Rect2(0, 716, W, 4), Color("1d62ad"))
+	draw_rect(Rect2(0, 664, W, 56), Color("2a6ba8"))
+	draw_rect(Rect2(0, 664, W, 4), Color("6fa8d8"))
+	draw_rect(Rect2(0, 716, W, 4), Color("17456f"))
 	for k in recs.size():
 		var id: String = recs[k]
 		var rx := 14.0 + k * 200.0
 		var ry := 668.0
-		_nine("panel", Rect2(rx, ry, 192, 48), Color("1d62ad"), 36.0, 36.0, 36.0)
+		_nine("panel", Rect2(rx, ry, 192, 48), Color("17456f"), 36.0, 36.0, 36.0)
 		_draw_dish(id, Vector2(rx + 28, ry + 24), 14)
 		_ingredient_icons(id, Vector2(rx + 78, ry + 24), 9, 34)
 

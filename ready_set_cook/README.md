@@ -101,3 +101,6 @@ Heights are data-driven (`Models.TOP`, `KitchenView.CHAR`). Licences are in `lic
 
 ## v4.2 chefs
 Chefs are now the rigged **KayKit Adventurers 2.0 (CC0)** characters (`assets/chars/`) animated with the KayKit Rig_Medium animations (idle, run, pick-up). The chef hat and apron are still ours (attached to the head/chest bones). "Character" in the customiser picks the model; hat, hat colour and apron are tinted per player. If `assets/chars/` is removed the old procedural chefs are used. Licence: `licenses/KayKit_Adventurers_License.txt`.
+
+## v5.0 look
+Near top-down camera, muted and grimy grade (lower saturation and exposure, dirt/scratch grain overlay), blue diamond kitchen floor, rounded counter ends, plain HUD text with a blue recipe bar, chunky clay-style chefs (white double-breasted jacket, black trousers, big head) and a new character screen. The rigged KayKit chefs are still in `assets/chars/` (`Models.USE_KAY`, off by default).

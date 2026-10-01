@@ -3,8 +3,8 @@ extends GameSim
 # Simulation lives in game_sim.gd, drawing helpers in draw_kit.gd.
 
 const CUSTOM_CATS := [
-	{"id": "skin", "label": "Character"}, {"id": "hat", "label": "Hat"}, {"id": "hat_col", "label": "Hat colour"},
-	{"id": "apron", "label": "Apron"},
+	{"id": "skin", "label": "Skin"}, {"id": "hat", "label": "Hat"}, {"id": "hat_col", "label": "Hat colour"},
+	{"id": "acc", "label": "Face gear"},
 ]
 const KEY_ROWS := ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]
 
@@ -951,46 +951,57 @@ func _draw_players() -> void:
 func _draw_customize() -> void:
 	var look := _edit_look()
 	var pname := str(acc.get_profile(edit_pid).get("name", "")) if edit_pid != "" else _slot_name(edit_slot)
-	_button(Rect2(16, 14, 160, 54), "DONE", "cust_done", Color("39b36b"), 26)
-	_ctext("Customize your chef", Vector2(W / 2, 54), 46)
-	_spr("glow", Vector2(330, 360), 4.8, 0.0, Color(1, 1, 1, 0.55))
-	_ell(Vector2(330, 540), 150, 28, Color(0, 0, 0, 0.3))
-	var k := 1.0 + sin(t_global * 3.0) * 0.012
-	_stage_chef("custom", look, Vector2(330, 565), 1.0, "turn", "smile")
-	_ctext(pname, Vector2(330, 596), 38, Color.WHITE)
+	_button(Rect2(16, 14, 140, 52), "DONE", "cust_done", Color("39b36b"), 26)
+	_ctext("Customize your chef", Vector2(W / 2, 52), 44)
+	# big blue frame like the real game's character screen
+	_rr(Rect2(60, 86, 1160, 600), Color("2c78bd"), 22, C_OUTLINE, 5)
+	_rr(Rect2(76, 102, 1128, 568), Color("3d8fd6"), 16)
+	# left: skin tones
+	var skin_cur := clampi(int(look.get("skin", 0)), 0, Data.SKINS.size() - 1)
+	_rr(Rect2(92, 118, 96, 536), Color("1f5f9e"), 14, C_OUTLINE, 3)
+	for i in Data.SKINS.size():
+		var cy := 150.0 + i * 62.0
+		var rect := Rect2(100, cy - 26, 80, 54)
+		buttons.append({"rect": rect, "id": "cust_set_skin_%d" % i})
+		if i == skin_cur:
+			_rr(rect.grow(4), Color("ffffff"), 12, C_OUTLINE, 3)
+		_ell(Vector2(140, cy), 32 if i == skin_cur else 27, 22 if i == skin_cur else 18, Color(str(Data.SKINS[i])))
+	# centre: you
+	_rr(Rect2(206, 118, 300, 536), Color("bfe3f7"), 14, C_OUTLINE, 3)
+	_ctext("YOU", Vector2(356, 168), 42, Color.WHITE)
+	_ell(Vector2(356, 560), 110, 20, Color(0, 0, 0, 0.25))
+	_stage_chef("custom", look, Vector2(356, 575), 1.25, "turn", "smile")
+	_button(Rect2(256, 586, 200, 50), "RANDOMIZE", "cust_random", Color("48b84f"), 22)
+	_ctext(pname, Vector2(356, 214), 26, Color("123a5c"))
+	# hats
+	var hat_cur := clampi(int(look.get("hat", 0)), 0, Data.HATS.size() - 1)
+	_rr(Rect2(526, 118, 230, 536), Color("1f5f9e"), 14, C_OUTLINE, 3)
+	_ctext("HATS", Vector2(641, 156), 28, Color.WHITE)
+	for i in Data.HATS.size():
+		var r := Rect2(540, 176 + i * 78, 202, 68)
+		buttons.append({"rect": r, "id": "cust_set_hat_%d" % i})
+		_rr(r, Color("ffe08a") if i == hat_cur else Color("e8f3fb"), 14, C_OUTLINE, 3)
+		_ctext(str(Data.HATS[i]).capitalize(), r.get_center() + Vector2(0, 10), 26, Color("123a5c") if i != hat_cur else Color("5a3a00"))
+	# hat colour + face gear
+	_rr(Rect2(776, 118, 410, 536), Color("1f5f9e"), 14, C_OUTLINE, 3)
+	_ctext("HAT COLOUR", Vector2(981, 156), 28, Color.WHITE)
+	var col_cur := clampi(int(look.get("hat_col", 0)), 0, Data.COLORS.size() - 1)
+	for i in Data.COLORS.size():
+		var sc := Vector2(820 + (i % 6) * 62, 204 + (i / 6) * 62)
+		buttons.append({"rect": Rect2(sc - Vector2(26, 26), Vector2(52, 52)), "id": "cust_set_hat_col_%d" % i})
+		draw_circle(sc, 27 if i == col_cur else 23, C_OUTLINE)
+		draw_circle(sc, 23 if i == col_cur else 19, Color(str(Data.COLORS[i])))
+		if i == col_cur:
+			draw_arc(sc, 30, 0, TAU, 24, Color.WHITE, 3.0)
+	_ctext("FACE GEAR", Vector2(981, 380), 28, Color.WHITE)
+	var acc_cur := clampi(int(look.get("acc", 0)), 0, Data.ACCS.size() - 1)
+	for i in Data.ACCS.size():
+		var r := Rect2(796 + (i % 2) * 190, 400 + (i / 2) * 62, 178, 52)
+		buttons.append({"rect": r, "id": "cust_set_acc_%d" % i})
+		_rr(r, Color("ffe08a") if i == acc_cur else Color("e8f3fb"), 12, C_OUTLINE, 3)
+		_ctext(str(Data.ACCS[i]).capitalize(), r.get_center() + Vector2(0, 9), 22, Color("123a5c") if i != acc_cur else Color("5a3a00"))
 	if edit_pid != "" or str(slots[edit_slot]["pid"]) != "":
-		_button(Rect2(210, 608, 240, 46), "RENAME", "cust_rename", Color("4c8bf5"), 22)
-	_button(Rect2(210, 664, 240, 42), "RANDOM", "cust_random", Color("ff9f1c"), 20)
-	var y := 100.0
-	for c in CUSTOM_CATS:
-		var id: String = c["id"]
-		var size := _cat_size(id)
-		var cur := clampi(int(look.get(id, 0)), 0, size - 1)
-		var r := Rect2(640, y, 620, 78)
-		_panel(r, Color("c99a6b"))
-		_txt(str(c["label"]), r.position + Vector2(24, 48), 26, Color.WHITE)
-		_arrow_button(r.position + Vector2(300, 39), true, "cust_prev_" + id)
-		_arrow_button(r.position + Vector2(584, 39), false, "cust_next_" + id)
-		var vc := r.position + Vector2(442, 39)
-		if id == "skin" or id.ends_with("col") or id == "jacket" or id == "apron" or id == "scarf":
-			var list: Array = Data.SKINS if id == "skin" else Data.COLORS
-			var show := 5
-			var start := clampi(cur - 2, 0, maxi(0, size - show))
-			for m in show:
-				var idx := start + m
-				if idx >= size:
-					break
-				var sc := Vector2(vc.x - 2 * 40 + m * 40, vc.y)
-				var rect := Rect2(sc - Vector2(17, 17), Vector2(34, 34))
-				buttons.append({"rect": rect, "id": "cust_set_%s_%d" % [id, idx]})
-				draw_circle(sc, 18 if idx == cur else 15, C_OUTLINE)
-				draw_circle(sc, 14 if idx == cur else 12, Color(str(list[idx])))
-				if idx == cur:
-					draw_arc(sc, 21, 0, TAU, 20, C_GOLD, 3.0)
-		else:
-			var label := str(Data.HATS[cur]) if id == "hat" else str(Data.ACCS[cur])
-			_ctext(label.capitalize(), vc + Vector2(0, 10), 28, Color.WHITE)
-		y += 86.0
+		_button(Rect2(900, 590, 200, 46), "RENAME", "cust_rename", Color("ff9f1c"), 22)
 
 
 # ====================================================================

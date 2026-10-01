@@ -39,21 +39,22 @@ func _ready() -> void:
 	e.background_mode = Environment.BG_COLOR
 	e.background_color = Color("14111c")
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color(0.72, 0.74, 0.86)
-	e.ambient_light_energy = 0.78
+	e.ambient_light_color = Color(0.74, 0.7, 0.72)
+	e.ambient_light_energy = 0.52
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	e.tonemap_exposure = 0.82
+	e.tonemap_exposure = 0.74
 	e.adjustment_enabled = true
-	e.adjustment_contrast = 1.12
-	e.adjustment_saturation = 0.95
+	e.adjustment_contrast = 1.22
+	e.adjustment_saturation = 0.68
+	e.adjustment_brightness = 0.96
 	env.environment = e
 	add_child(env)
 	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-72, -18, 0)
-	sun.light_energy = 0.55
-	sun.light_color = Color(1.0, 0.9, 0.76)
+	sun.light_energy = 0.5
+	sun.light_color = Color(1.0, 0.86, 0.66)
 	sun.shadow_enabled = true
-	sun.shadow_opacity = 0.42
+	sun.shadow_opacity = 0.65
 	sun.shadow_blur = 2.2
 	sun.shadow_bias = 0.05
 	sun.directional_shadow_max_distance = 40.0
@@ -150,7 +151,7 @@ func _floor_mat(world: int, dining: bool, checker: bool) -> StandardMaterial3D:
 	var o := 3 if dining else 0
 	var kind: String = L[o]
 	var tex := Textures.make(kind, Color(str(L[o + 1])), Color(str(L[o + 2])), 0 if checker else 1)
-	return Models.img_mat(tex, "f_%d_%s_%s" % [world, dining, checker], Color(0.9, 0.9, 0.9), 0.8)
+	return Models.img_mat(tex, "f_%d_%s_%s" % [world, dining, checker], Color(0.66, 0.62, 0.6), 0.9)
 
 
 func _wall_mat(world: int, h: float) -> StandardMaterial3D:
@@ -209,6 +210,10 @@ func build_level() -> void:
 				_blob(cpos, 0.62)
 			elif Data.RULES.has(kind) or Data.CRATES.has(kind) or kind in "XABT":
 				var st := Models.station(kind)
+				if kind == "X":
+					var rounded := _rounded_counter(x, y)
+					if rounded != null:
+						st = rounded
 				st.position = cpos
 				level_root.add_child(st)
 				station_nodes[Vector2i(x, y)] = st
@@ -298,6 +303,35 @@ func _decorate(world: int) -> void:
 	shelf.position = Vector3(1.0, 1.4, 6.0)
 	shelf.rotation_degrees = Vector3(0, 90, 0)
 	level_root.add_child(shelf)
+
+
+# counters that end (or turn a corner) get a rounded shape, like the curved counters in the real game
+func _rounded_counter(x: int, y: int) -> Node3D:
+	var dirs := [Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(0, -1)]
+	var solid: Array = []
+	for d in dirs:
+		var c: Vector2i = Vector2i(x, y) + (d as Vector2i)
+		if c.x < 0 or c.y < 0 or c.x >= Data.COLS or c.y >= Data.ROWS:
+			return null
+		var ch: String = g.map[c.y][c.x]
+		if ch == "#":
+			return null
+		solid.append(ch in "XCSOAMVDB")
+	var n := 0
+	for s in solid:
+		if s:
+			n += 1
+	# yaw so the neighbour (end) or neighbours (corner) land on +x (+z)
+	if n == 1:
+		for i in 4:
+			if solid[i]:
+				# direction i rotated onto +x: dirs go +x, +z, -x, -z
+				return Models.counter_round("end", [0.0, 90.0, 180.0, 270.0][i])
+	if n == 2:
+		for i in 4:
+			if solid[i] and solid[(i + 1) % 4]:
+				return Models.counter_round("corner", [0.0, 90.0, 180.0, 270.0][i])
+	return null
 
 
 # KayKit wall pieces on the inner face of the left and right walls
