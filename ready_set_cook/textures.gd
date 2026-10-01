@@ -104,8 +104,11 @@ static func make(kind: String, base: Color, alt: Color, v: int) -> ImageTexture:
 					var d := dx + dy
 					var c := base if d < 1.0 else alt
 					var edge := absf(d - 1.0) * 64.0
-					var m := 0.5 + 0.5 * n.get_noise_2d(x * 1.2, y * 1.2)
-					var k := 0.9 + 0.16 * m
+					var m := 0.5 + 0.5 * n.get_noise_2d(x * 1.2 + v * 70.0, y * 1.2)
+					# hand-painted look: big uneven washes + brush streaks, each variant different
+					var wash := 0.5 + 0.5 * n.get_noise_2d(x * 0.35 + v * 13.0, y * 0.35 + v * 7.0)
+					var streak := 0.5 + 0.5 * n.get_noise_2d(x * 0.15 + v * 5.0, y * 2.6)
+					var k := 0.78 + 0.16 * m + 0.2 * wash + 0.08 * streak
 					if edge < 2.0:
 						k *= 0.55 + edge * 0.2
 					if n.get_noise_2d(x * 2.4 + 500.0, y * 2.4) > 0.62:
@@ -231,6 +234,14 @@ static func grime(kind: String, v: int) -> ImageTexture:
 					for dy in range(-3, 4):
 						if Vector2(dx, dy).length() <= rr:
 							_blend(img, int(p.x) + dx, int(p.y) + dy, Color(0.12, 0.08, 0.06, rng.randf_range(0.2, 0.5)))
+		"tan":
+			# painted counter top: warm tan with uneven washes, a hand-drawn dark border
+			for y in S:
+				for x in S:
+					var w := 0.5 + 0.5 * n.get_noise_2d(x * 0.4 + v * 20.0, y * 0.4)
+					var s := 0.5 + 0.5 * n.get_noise_2d(x * 0.1 + v * 9.0, y * 3.0)
+					var k := 0.86 + 0.18 * w + 0.08 * s
+					img.set_pixel(x, y, Color(0.8 * k, 0.62 * k, 0.42 * k, 1.0))
 		"scuff":
 			for i in 3:
 				var p := Vector2(rng.randf_range(20, 90), rng.randf_range(20, 108))

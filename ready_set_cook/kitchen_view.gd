@@ -14,6 +14,7 @@ var sun: DirectionalLight3D
 var level_root: Node3D
 var dyn_root: Node3D
 const CHAR := 0.74                 # chefs and customers are small next to the half-size kitchen
+var round_cells := {}
 var canvas_scale := 1.0              # canvas px per viewport px
 var station_nodes := {}              # Vector2i -> Node3D
 var plate_nodes := {}                # Vector2i -> {node, key}
@@ -146,11 +147,11 @@ const LOOKS := [
 ]
 
 
-func _floor_mat(world: int, dining: bool, checker: bool) -> StandardMaterial3D:
+func _floor_mat(world: int, dining: bool, checker: int) -> StandardMaterial3D:
 	var L: Array = LOOKS[world]
 	var o := 3 if dining else 0
 	var kind: String = L[o]
-	var tex := Textures.make(kind, Color(str(L[o + 1])), Color(str(L[o + 2])), 0 if checker else 1)
+	var tex := Textures.make(kind, Color(str(L[o + 1])), Color(str(L[o + 2])), checker)
 	return Models.img_mat(tex, "f_%d_%s_%s" % [world, dining, checker], Color(0.66, 0.62, 0.6), 0.9)
 
 
@@ -168,6 +169,7 @@ func _wall_mat(world: int, h: float) -> StandardMaterial3D:
 
 
 func clear_level() -> void:
+	round_cells.clear()
 	for c in level_root.get_children():
 		c.queue_free()
 	for c in dyn_root.get_children():
@@ -194,7 +196,7 @@ func build_level() -> void:
 				Models.mi(level_root, Models.rbox(Vector3(1.0, h, 1.0), 0.03, 2), _wall_mat(world, h), Vector3(cpos.x, h / 2.0, cpos.z)).name = "wall"
 				Models.mi(level_root, Models.rbox(Vector3(1.04, 0.1, 1.04), 0.04, 2), Models.mat(cap_col, 0.7), Vector3(cpos.x, h + 0.04, cpos.z))
 				continue
-			var checker := (x + y) % 2 == 0
+			var checker := ((x * 3 + y * 5) % 4) if kind != "w" else (x + y) % 2
 			var dining := kind in "wTc"
 			var fl := Models.mi(level_root, plane, _floor_mat(world, dining, checker), cpos)
 			fl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -214,6 +216,7 @@ func build_level() -> void:
 					var rounded := _rounded_counter(x, y)
 					if rounded != null:
 						st = rounded
+						round_cells[Vector2i(x, y)] = true
 				st.position = cpos
 				level_root.add_child(st)
 				station_nodes[Vector2i(x, y)] = st
@@ -339,6 +342,8 @@ func _grime() -> void:
 				var top := Models.TOP + 0.012
 				if kind in "MVD":
 					continue
+				if kind in "XCA" and not round_cells.has(Vector2i(x, y)):
+					_decal("tan", rng.randi() % 3, Vector3(c.x, top - 0.002, c.z), 0.98, 0.0)
 				_decal("scratch", rng.randi() % 4, Vector3(c.x, top, c.z), 0.95, rng.randf() * TAU, 0.9)
 				if kind == "X" and rng.randf() < 0.55:
 					_decal("squiggle" if rng.randf() < 0.5 else "stain", rng.randi() % 3, Vector3(c.x + rng.randf_range(-0.1, 0.1), top + 0.002, c.z), 0.8, rng.randf() * TAU)

@@ -925,7 +925,7 @@ static func counter_round(shape: String, yaw_deg: float) -> Node3D:
 	root.name = "station_X"
 	var body_m := mat("bfc4cf", 0.6).duplicate() as StandardMaterial3D
 	body_m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var top_m := mat("9f6234", 0.6).duplicate() as StandardMaterial3D
+	var top_m := mat("c9985a", 0.6).duplicate() as StandardMaterial3D
 	top_m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var body := mi(root, _extrude(poly, 0.0, TOP - 0.06), body_m)
 	var top := mi(root, _extrude(poly, TOP - 0.06, TOP), top_m)

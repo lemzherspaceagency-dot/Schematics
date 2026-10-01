@@ -33,7 +33,8 @@ func _draw() -> void:
 			_draw_pause()
 	for q in g.coin_fx:
 		_spr("coin", q["p"], 0.5 * (0.8 + 0.2 * sin(float(q["life"]) * 20.0)))
-	_draw_grain()
+	if g.state == GameSim.S.PLAY or g.state == GameSim.S.PAUSE:
+		_draw_grain()
 	_draw_vignette()
 	if g.fade > 0.0:
 		draw_rect(Rect2(-20, -20, W + 40, H + 40), Color(0.12, 0.07, 0.1, g.fade))
