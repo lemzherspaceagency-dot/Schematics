@@ -13,6 +13,7 @@ var cam: Camera3D
 var sun: DirectionalLight3D
 var level_root: Node3D
 var dyn_root: Node3D
+const CHAR := 0.8                  # chefs and customers are small next to the half-size kitchen
 var canvas_scale := 1.0              # canvas px per viewport px
 var station_nodes := {}              # Vector2i -> Node3D
 var plate_nodes := {}                # Vector2i -> {node, key}
@@ -113,14 +114,14 @@ func pick(canvas_pt: Vector2) -> Vector2:
 	var d := cam.project_ray_normal(p)
 	if absf(d.y) < 0.0001:
 		return Vector2.ZERO
-	var hi := o + d * ((0.85 - o.y) / d.y)
+	var hi := o + d * ((0.6 - o.y) / d.y)
 	var cell := Vector2i(int(floor(hi.x)), int(floor(hi.z)))
 	if cell.x >= 0 and cell.y >= 0 and cell.x < Data.COLS and cell.y < Data.ROWS:
 		var kind: String = g.map[cell.y][cell.x]
 		if kind in "MVDCSOABTc":
 			return from3(Vector3(cell.x + 0.5, 0, cell.y + 0.5))
 	# customers' heads are high: look at a plane at head height too
-	var head := o + d * ((1.35 - o.y) / d.y)
+	var head := o + d * ((0.9 - o.y) / d.y)
 	var hc := Vector2i(int(floor(head.x)), int(floor(head.z)))
 	if hc.x >= 0 and hc.y >= 0 and hc.x < Data.COLS and hc.y < Data.ROWS and g.map[hc.y][hc.x] == "c":
 		return from3(Vector3(hc.x + 0.5, 0, hc.y + 0.5))
@@ -261,16 +262,22 @@ func _decorate(world: int) -> void:
 	var glass := StandardMaterial3D.new()
 	glass.albedo_texture = skyt
 	glass.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	for i in 3:
-		var wx := 3.0 + i * 5.0
-		var frame := Models.mi(level_root, Models.rbox(Vector3(2.3, 1.15, 0.12), 0.05, 2), Models.mat("2b3445", 0.6), Vector3(wx, 1.15, 0.98))
-		frame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var pane := Models.mi(level_root, PlaneMesh.new(), glass, Vector3(wx, 1.15, 1.05), Vector3(90, 0, 0), Vector3(2.0, 1, 0.9))
-		pane.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		Models.mi(level_root, Models.rbox(Vector3(0.07, 0.95, 0.05), 0.02, 2), Models.mat("2b3445", 0.6), Vector3(wx, 1.15, 1.08))
-	for px in [1.5, 5.0, 8.5, 12.0, 14.5]:
-		Models.mi(level_root, Models.cyl(0.32, 0.34, 2.0), Models.mat("33607a" if world == 0 else ("5a2a22" if world == 1 else "2c5a48"), 0.7), Vector3(px, 1.0, 0.82))
-		Models.mi(level_root, Models.cyl(0.4, 0.4, 0.14), Models.mat("1d2530", 0.6), Vector3(px, 0.07, 0.82))
+	# the pass wall: KayKit wall pieces (2 tiles wide), with open windows onto the sky
+	for i in cols / 2:
+		var is_win := i in [1, 3, 5]
+		var piece := Models.asset("env_window" if is_win else "env_wall")
+		if piece == null:
+			continue
+		piece.position = Vector3(1.0 + i * 2.0, 0, 1.0)
+		level_root.add_child(piece)
+		if is_win:
+			var pane := Models.mi(level_root, PlaneMesh.new(), glass, Vector3(1.0 + i * 2.0, 1.1, 1.01), Vector3(90, 0, 0), Vector3(2.0, 1, 1.6))
+			pane.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for px in [2.0, 6.0, 10.0, 14.0]:
+		var pil := Models.asset("env_pillar")
+		if pil != null:
+			pil.position = Vector3(px, 0, 1.12)
+			level_root.add_child(pil)
 	# hanging lamps on long dark cords
 	for lx in [4.7, 8.5, 12.3]:
 		var l := Models.lamp(["ff8a5c", "ffd166", "7fd6c2"][world])
@@ -385,7 +392,9 @@ func _sync_stations(delta: float) -> void:
 				var flames: Node3D = node.get_node_or_null("flames")
 				if pot != null:
 					pot.visible = st != "idle"
-					pot.position.y = 0.9 + (sin(t * 25.0) * 0.004 if st == "working" else 0.0)
+					if not pot.has_meta("y0"):
+						pot.set_meta("y0", pot.position.y)
+					pot.position.y = float(pot.get_meta("y0")) + (sin(t * 25.0) * 0.004 if st == "working" else 0.0)
 				if flames != null:
 					flames.visible = st != "idle"
 					if flames.visible:
@@ -400,7 +409,7 @@ func _sync_stations(delta: float) -> void:
 			"C":
 				var slot: Node3D = node.get_node_or_null("slot_live")
 				if slot == null:
-					slot = Models.node(node, "slot_live", Vector3(0.12, 0.95, -0.02))
+					slot = Models.node(node, "slot_live", Vector3(0.1, Models.TOP + 0.08, -0.02))
 					slot.set_meta("key", "")
 				var want := ""
 				if st == "working":
@@ -410,7 +419,7 @@ func _sync_stations(delta: float) -> void:
 				if str(slot.get_meta("key")) != want:
 					slot.set_meta("key", want)
 					_set_slot_item(slot, want, false, 0.9)
-				slot.position.y = 0.95 + (sin(t * 45.0) * 0.012 if st == "working" else 0.0)
+				slot.position.y = Models.TOP + 0.08 + (sin(t * 45.0) * 0.012 if st == "working" else 0.0)
 	# plates
 	for key in g.plates:
 		var pc: Vector2i = key
@@ -424,7 +433,7 @@ func _sync_stations(delta: float) -> void:
 				info["node"] = null
 			if not items.is_empty():
 				var holder := Node3D.new()
-				holder.position = Vector3(pc.x + 0.5, 0.93, pc.y + 0.5)
+				holder.position = Vector3(pc.x + 0.5, Models.TOP + 0.02, pc.y + 0.5)
 				level_root.add_child(holder)
 				var did: String = g._recipe_for(items)
 				if did != "":
@@ -441,7 +450,7 @@ func _sync_stations(delta: float) -> void:
 			var hn: Node3D = info["node"]
 			if g._recipe_for(items) != "":
 				hn.rotation.y = t * 0.8
-				hn.position.y = 0.93 + sin(t * 4.0) * 0.012
+				hn.position.y = Models.TOP + 0.02 + sin(t * 4.0) * 0.012
 
 
 func _chef_entry(ch: Chef) -> Dictionary:
@@ -473,7 +482,7 @@ func _sync_chefs(delta: float) -> void:
 		yaw = lerp_angle(yaw, target_yaw, 1.0 - exp(-12.0 * delta))
 		e["yaw"] = yaw
 		n.rotation.y = yaw
-		n.scale = Vector3(1.0 - ch.sq * 0.5, 1.0 + ch.sq, 1.0 - ch.sq * 0.5)
+		n.scale = Vector3(1.0 - ch.sq * 0.5, 1.0 + ch.sq, 1.0 - ch.sq * 0.5) * CHAR
 		var body: Node3D = n.get_node("body")
 		var head: Node3D = n.get_node("head")
 		var swing := sin(ch.walk) if spd > 25.0 else 0.0
@@ -565,7 +574,7 @@ func _sync_customers(delta: float) -> void:
 		var chair_cell: Vector2i = g.chair_of.get(seat, seat)
 		var dv: Vector2i = seat - chair_cell
 		n.rotation.y = atan2(float(dv.x), float(dv.y)) + wiggle
-		n.scale = Vector3.ONE * scl
+		n.scale = Vector3.ONE * scl * CHAR
 		var frac: float = float(c["pat"]) / float(c["max"])
 		var body: Node3D = n.get_node("body")
 		body.position.y = 0.52 + sin(t * 2.2 + seat.y) * 0.008

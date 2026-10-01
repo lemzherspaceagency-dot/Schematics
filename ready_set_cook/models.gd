@@ -212,12 +212,18 @@ static func _polish(n: Node) -> void:
 				if src is StandardMaterial3D:
 					var d := (src as StandardMaterial3D).duplicate() as StandardMaterial3D
 					if not d.emission_enabled:
-						_paint(d)
+						if d.albedo_texture == null:
+							_paint(d)
+						else:
+							d.albedo_color = Color(0.82, 0.82, 0.85)
 						d.next_pass = outline()
 					mi_.set_surface_override_material(i, d)
 	for c in n.get_children():
 		_polish(c)
 
+
+# counter-top height of the stations (the KayKit counters are half size here)
+const TOP := 0.75
 
 const ASSET_NAMES := {"X": "counter", "T": "table", "M": "crate_meat", "V": "crate_veg", "D": "crate_dough",
 	"C": "chop_board", "S": "stove", "O": "oven", "A": "plate_station", "B": "bin"}
@@ -275,6 +281,7 @@ static func station(kind: String) -> Node3D:
 			# hoist the model's parts so named ones (pot, flames, glow) are direct children
 			for c in custom.get_children():
 				custom.remove_child(c)
+				c.owner = null
 				root.add_child(c)
 			custom.free()
 			return root

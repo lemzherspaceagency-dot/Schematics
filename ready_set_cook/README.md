@@ -87,3 +87,14 @@ There's no Godot logo: the boot splash is `art/splash.png`, and the game opens o
 ## Shipping to Messenger / Instant Games
 Project > Export > Web. Use the Facebook Instant Games SDK from a custom HTML shell; call `FBInstant.initializeAsync()` / `startGameAsync()` through
 `JavaScriptBridge`, and map the signed-in player to an account. Online (ENet) play won't work in the browser build; local co-op does.
+
+
+## v4.0 art: real CC0 models
+The kitchen is now built from professional CC0 3D models instead of hand-scripted primitives:
+- **KayKit Restaurant Bits 1.0 (Kay Lousberg, CC0)**: counters, stove, oven, crates, chairs, tables, plates, pot, walls, windows, pillars and most food.
+- **Kenney Food Kit (CC0)**: salad and soup bowls.
+- (Kenney Furniture Kit and Quaternius Ultimate Food Pack were evaluated; their licences are CC0 as well.)
+
+`blender_src/kay_assets.py` assembles them into `assets/*.glb` (`PACKS=/path/to/unzipped/packs python3 kay_assets.py`).
+Pieces are scaled to half size so one KayKit tile equals one game tile; stations are stretched a little taller (`SZ`) so they read chunky from the camera.
+Heights are data-driven (`Models.TOP`, `KitchenView.CHAR`). Licences are in `licenses/`.

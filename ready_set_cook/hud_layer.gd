@@ -168,7 +168,7 @@ func _draw_world_overlays() -> void:
 			continue
 		var kind: String = g.map[c.y][c.x]
 		var sc := clampf(v.px_scale(g._cell_center(c)), 0.7, 1.3)
-		var badge: Vector2 = v.station_top(c, 1.45 if kind != "O" else 1.7)
+		var badge: Vector2 = v.station_top(c, 1.05 if kind != "O" else 1.35)
 		var bsc := 1.0
 		var ring := C_GOOD
 		var frac := 1.0
@@ -210,7 +210,7 @@ func _draw_world_overlays() -> void:
 		if bk <= 0.0:
 			continue
 		var sc2 := clampf(v.px_scale(cpx), 0.7, 1.3)
-		var head: Vector2 = v.project(cpx, 1.55)
+		var head: Vector2 = v.project(cpx, 1.25)
 		var frac: float = float(c["pat"]) / float(c["max"])
 		var urgent := frac < 0.3
 		var bpos: Vector2 = head + Vector2(98 * sc2 + (sin(t_global * 40.0) * 2.0 if urgent else 0.0), 8 * sc2)
