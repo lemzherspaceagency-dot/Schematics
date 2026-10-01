@@ -7,6 +7,8 @@ var enabled := true
 var streams := {}
 var players: Array[AudioStreamPlayer] = []
 var next_player := 0
+var music_player: AudioStreamPlayer
+const MRATE := 11025
 
 
 func _ready() -> void:
@@ -28,6 +30,25 @@ func _ready() -> void:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
 		players.append(p)
+	music_player = AudioStreamPlayer.new()
+	music_player.stream = _make_music()
+	music_player.volume_db = -13.0
+	add_child(music_player)
+
+
+func set_enabled(v: bool) -> void:
+	enabled = v
+	if music_player == null:
+		return
+	if v and not music_player.playing:
+		music_player.play()
+	elif not v:
+		music_player.stop()
+
+
+func duck(amount_db: float) -> void:
+	if music_player != null:
+		music_player.volume_db = amount_db
 
 
 func play(sound: String, pitch: float = 1.0) -> void:
@@ -69,3 +90,71 @@ func _make(segs: Array) -> AudioStreamWAV:
 	w.stereo = false
 	w.data = data
 	return w
+
+
+# A cheerful 4-bar loop (C - Am - F - G): bouncy bass, plucky arpeggio, soft kick and hat.
+func _make_music() -> AudioStreamWAV:
+	var bpm := 118.0
+	var eighth := 60.0 / bpm / 2.0
+	var chords := [[0, 4, 7], [-3, 0, 4], [-7, -3, 0], [-5, -1, 2]]
+	var roots := [-24, -27, -31, -29]
+	var pat := [0, 1, 2, 1, 2, 1, 2, 1]
+	var total := int(32.0 * eighth * MRATE)
+	var buf := PackedFloat32Array()
+	buf.resize(total)
+	for i in 32:
+		var bar: int = i / 8
+		var step: int = i % 8
+		var t0: float = i * eighth
+		var chord: Array = chords[bar]
+		_note(buf, t0, _midi(60 + int(chord[pat[step]]) + 12), 0.34, 0.16, 9.0, 0)
+		if step % 2 == 0:
+			_note(buf, t0, _midi(60 + int(roots[bar]) + (12 if step == 4 else 0)), 0.36, 0.34, 5.0, 1)
+		if step == 0 or step == 4:
+			_note(buf, t0, 90.0, 0.16, 0.5, 18.0, 2)
+		if step % 2 == 1:
+			_note(buf, t0, 0.0, 0.05, 0.06, 60.0, 3)
+	var data := PackedByteArray()
+	data.resize(total * 2)
+	for i in total:
+		data.encode_s16(i * 2, int(clampf(buf[i], -1.0, 1.0) * 30000.0))
+	var w := AudioStreamWAV.new()
+	w.format = AudioStreamWAV.FORMAT_16_BITS
+	w.mix_rate = MRATE
+	w.stereo = false
+	w.data = data
+	w.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	w.loop_begin = 0
+	w.loop_end = total
+	return w
+
+
+func _midi(m: int) -> float:
+	return 440.0 * pow(2.0, (float(m) - 69.0) / 12.0)
+
+
+# wave: 0 triangle pluck, 1 sine bass, 2 kick (pitch drop), 3 noise hat
+func _note(buf: PackedFloat32Array, start_s: float, freq: float, dur: float, vol: float, decay: float, wave: int) -> void:
+	var a := int(start_s * MRATE)
+	var n := int(dur * MRATE)
+	var phase := 0.0
+	for j in n:
+		var idx := a + j
+		if idx >= buf.size():
+			idx -= buf.size()
+		var t := float(j) / MRATE
+		var env := exp(-t * decay) * minf(1.0, t * 300.0)
+		var smp := 0.0
+		match wave:
+			0:
+				phase += freq / MRATE
+				smp = absf(fmod(phase, 1.0) * 4.0 - 2.0) - 1.0
+			1:
+				phase += freq / MRATE
+				smp = sin(phase * TAU)
+			2:
+				phase += (freq * (1.0 + 2.5 * exp(-t * 30.0))) / MRATE
+				smp = sin(phase * TAU)
+			_:
+				smp = randf() * 2.0 - 1.0
+		buf[idx] += smp * env * vol

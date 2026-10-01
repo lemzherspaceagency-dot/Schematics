@@ -34,11 +34,11 @@ const LEVELS := [
 ]
 
 const UPGRADES := [
-	{"id": "boots", "name": "Speedy Shoes", "desc": "Chef walks 12% faster per level", "max": 5},
-	{"id": "knife", "name": "Sharp Knife", "desc": "Chopping is 15% faster per level", "max": 5},
-	{"id": "pan", "name": "Hot Pans", "desc": "Stove and oven cook 12% faster per level", "max": 5},
-	{"id": "chairs", "name": "Cozy Chairs", "desc": "Customers wait 15% longer per level", "max": 5},
-	{"id": "tips", "name": "Tip Jar", "desc": "Tips are 25% bigger per level", "max": 5},
+	{"id": "boots", "name": "Speedy Shoes", "desc": "Walk 12% faster per level", "max": 5},
+	{"id": "knife", "name": "Sharp Knife", "desc": "Chop 15% faster per level", "max": 5},
+	{"id": "pan", "name": "Hot Pans", "desc": "Cook 12% faster per level", "max": 5},
+	{"id": "chairs", "name": "Cozy Chairs", "desc": "Guests wait 15% longer", "max": 5},
+	{"id": "tips", "name": "Tip Jar", "desc": "Tips are 25% bigger", "max": 5},
 ]
 
 
