@@ -4,7 +4,7 @@ extends GameSim
 
 const CUSTOM_CATS := [
 	{"id": "skin", "label": "Skin"}, {"id": "hat", "label": "Hat"}, {"id": "hat_col", "label": "Hat colour"},
-	{"id": "acc", "label": "Face gear"},
+	{"id": "char", "label": "Character"},
 ]
 const KEY_ROWS := ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]
 
@@ -597,6 +597,8 @@ func _cat_size(cat: String) -> int:
 			return Data.HATS.size()
 		"acc":
 			return Data.ACCS.size()
+		"char":
+			return Models.CHAR_FILES.size()
 	return Data.COLORS.size()
 
 
@@ -993,13 +995,13 @@ func _draw_customize() -> void:
 		draw_circle(sc, 23 if i == col_cur else 19, Color(str(Data.COLORS[i])))
 		if i == col_cur:
 			draw_arc(sc, 30, 0, TAU, 24, Color.WHITE, 3.0)
-	_ctext("FACE GEAR", Vector2(981, 380), 28, Color.WHITE)
-	var acc_cur := clampi(int(look.get("acc", 0)), 0, Data.ACCS.size() - 1)
-	for i in Data.ACCS.size():
+	_ctext("CHARACTER", Vector2(981, 380), 28, Color.WHITE)
+	var char_cur := int(look.get("char", 0)) % Models.CHAR_FILES.size()
+	for i in Models.CHAR_FILES.size():
 		var r := Rect2(796 + (i % 2) * 190, 400 + (i / 2) * 62, 178, 52)
-		buttons.append({"rect": r, "id": "cust_set_acc_%d" % i})
-		_rr(r, Color("ffe08a") if i == acc_cur else Color("e8f3fb"), 12, C_OUTLINE, 3)
-		_ctext(str(Data.ACCS[i]).capitalize(), r.get_center() + Vector2(0, 9), 22, Color("123a5c") if i != acc_cur else Color("5a3a00"))
+		buttons.append({"rect": r, "id": "cust_set_char_%d" % i})
+		_rr(r, Color("ffe08a") if i == char_cur else Color("e8f3fb"), 12, C_OUTLINE, 3)
+		_ctext(str(Models.CHAR_FILES[i]).replace("_", " "), r.get_center() + Vector2(0, 9), 22, Color("123a5c") if i != char_cur else Color("5a3a00"))
 	if edit_pid != "" or str(slots[edit_slot]["pid"]) != "":
 		_button(Rect2(900, 590, 200, 46), "RENAME", "cust_rename", Color("ff9f1c"), 22)
 

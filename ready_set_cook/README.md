@@ -105,5 +105,8 @@ Chefs are now the rigged **KayKit Adventurers 2.0 (CC0)** characters (`assets/ch
 ## v5.0 look
 Near top-down camera, muted and grimy grade (lower saturation and exposure, dirt/scratch grain overlay), blue diamond kitchen floor, rounded counter ends, plain HUD text with a blue recipe bar, chunky clay-style chefs (white double-breasted jacket, black trousers, big head) and a new character screen. The rigged KayKit chefs are still in `assets/chars/` (`Models.USE_KAY`, off by default).
 
-## v6.0 clay chefs
+## v6.0 clay chefs (fallback)
 Chefs are modelled in Blender as lumpy clay figures (`blender_src/chef_assets.py` -> `assets/chef_base.glb`, `assets/hat_*.glb`). The game recolours the materials named `skin` and `hatcol` per player. If the files are missing it falls back to the procedural chefs.
+
+## v7.0 chefs: KayKit, restyled
+Chefs are the rigged KayKit Adventurers (Knight, Mage, Ranger, Rogue, Hooded Rogue) with their animations. At load the game repaints each character's colour palette (`Models._chef_palette`): whites, blacks and the chosen skin tone, so they read as cooks. Weapons/helmets/capes are hidden and our pleated Blender hats (`assets/hat_*.glb`) sit on the head bone. The old clay and procedural chefs remain as fallbacks.

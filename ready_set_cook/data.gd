@@ -138,10 +138,10 @@ static func coop_multiplier(players: int) -> float:
 
 static func default_look(slot: int) -> Dictionary:
 	var looks := [
-		{"skin": 0, "hat": 0, "hat_col": 0, "jacket": 0, "apron": 6, "scarf": 1, "acc": 0},
-		{"skin": 3, "hat": 1, "hat_col": 1, "jacket": 6, "apron": 0, "scarf": 3, "acc": 1},
-		{"skin": 1, "hat": 3, "hat_col": 4, "jacket": 4, "apron": 3, "scarf": 0, "acc": 3},
-		{"skin": 5, "hat": 2, "hat_col": 7, "jacket": 7, "apron": 8, "scarf": 2, "acc": 2},
+		{"skin": 0, "char": 0, "hat": 0, "hat_col": 0, "jacket": 0, "apron": 6, "scarf": 1, "acc": 0},
+		{"skin": 3, "char": 2, "hat": 1, "hat_col": 1, "jacket": 6, "apron": 0, "scarf": 3, "acc": 1},
+		{"skin": 1, "char": 3, "hat": 3, "hat_col": 4, "jacket": 4, "apron": 3, "scarf": 0, "acc": 3},
+		{"skin": 5, "char": 4, "hat": 2, "hat_col": 7, "jacket": 7, "apron": 8, "scarf": 2, "acc": 2},
 	]
 	return (looks[slot % 4] as Dictionary).duplicate()
 

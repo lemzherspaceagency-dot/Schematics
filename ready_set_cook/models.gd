@@ -540,9 +540,9 @@ static func _hex(list: Array, idx: int) -> String:
 # A chef. Children worth animating: body, head, arm_l, arm_r, foot_l, foot_r, held (anchor above the head)
 static func chef(look: Dictionary) -> Node3D:
 	_clean = true
-	var r: Node3D = _clay_chef(look)
-	if r == null and USE_KAY:
-		r = _kay_chef(look)
+	var r: Node3D = _kay_chef(look) if USE_KAY else null
+	if r == null:
+		r = _clay_chef(look)
 	if r == null:
 		r = _chef(look)
 	_clean = false
@@ -602,8 +602,8 @@ static func _clay_chef(look: Dictionary) -> Node3D:
 
 
 # ---- rigged chefs: KayKit Adventurers (CC0) + the Rig_Medium animation set ----
-const USE_KAY := false   # the rigged KayKit chefs are in assets/chars; off because the procedural chibi chefs read better from above
-const CHAR_FILES := ["Knight", "Barbarian", "Mage", "Ranger", "Rogue", "Rogue_Hooded"]
+const USE_KAY := true    # the rigged KayKit chefs are in assets/chars; off because the procedural chibi chefs read better from above
+const CHAR_FILES := ["Knight", "Mage", "Ranger", "Rogue", "Rogue_Hooded"]
 const KAY_HIDE := ["Helmet", "HelmetVisor", "Cape", "Hat", "BearHat", "Quiver", "Mask"]
 const KAY_SCALE := 0.63          # head centre ends up at y = 1.1 like the old procedural chef
 static var _anim_lib: AnimationLibrary
@@ -626,8 +626,49 @@ static func _kay_lib() -> AnimationLibrary:
 	return _anim_lib
 
 
+static var _pal_cache := {}
+
+
+# Re-paint a KayKit palette (8x4 swatches of vertical gradients) as a chef: whites, blacks, skin.
+static func _chef_palette(src: Texture2D, skin: Color, key: String) -> Texture2D:
+	if _pal_cache.has(key):
+		return _pal_cache[key]
+	var img := src.get_image()
+	if img.is_compressed():
+		img.decompress()
+	img.convert(Image.FORMAT_RGBA8)
+	var cw := img.get_width() / 8
+	var ch := img.get_height() / 4
+	for cy in 4:
+		for cx in 8:
+			var mid := img.get_pixel(cx * cw + cw / 2, cy * ch + ch / 2)
+			var target := Color("e9ebf2")
+			var h := mid.h
+			var s := mid.s
+			var v := mid.v
+			if h > 0.0 and h < 0.1 and s > 0.15 and s < 0.62 and v > 0.62:
+				target = skin
+			elif v < 0.3:
+				target = Color("2a2a33")
+			elif s < 0.2 and v > 0.6:
+				target = Color("f2f2f6")
+			elif s < 0.2:
+				target = Color("c3c7d3")
+			elif h > 0.0 and h < 0.1 and v < 0.62:
+				target = Color("3b2a22")
+			for y in ch:
+				var o := img.get_pixel(cx * cw + cw / 2, cy * ch + y)
+				var k := clampf((o.v + 0.05) / maxf(0.15, v + 0.05), 0.55, 1.35)
+				var c := Color(clampf(target.r * k, 0, 1), clampf(target.g * k, 0, 1), clampf(target.b * k, 0, 1), 1.0)
+				img.fill_rect(Rect2i(cx * cw, cy * ch + y, cw, 1), c)
+	img.generate_mipmaps()
+	var t := ImageTexture.create_from_image(img)
+	_pal_cache[key] = t
+	return t
+
+
 static func _kay_chef(look: Dictionary) -> Node3D:
-	var idx: int = int(look.get("skin", 0)) % CHAR_FILES.size()
+	var idx: int = int(look.get("char", 0)) % CHAR_FILES.size()
 	var path: String = "res://assets/chars/%s.glb" % CHAR_FILES[idx]
 	if not ResourceLoader.exists(path) or not ResourceLoader.exists("res://assets/chars/Rig_Medium_General.glb"):
 		return null
@@ -637,6 +678,8 @@ static func _kay_chef(look: Dictionary) -> Node3D:
 	model.name = "model"
 	model.scale = Vector3.ONE * KAY_SCALE
 	root.add_child(model)
+	var skin := Color(_hex(Data.SKINS, int(look.get("skin", 0))))
+	var pal: Texture2D = null
 	for mi_ in model.find_children("*", "MeshInstance3D"):
 		var mesh_i := mi_ as MeshInstance3D
 		for h in KAY_HIDE:
@@ -646,8 +689,12 @@ static func _kay_chef(look: Dictionary) -> Node3D:
 			var src := mesh_i.mesh.surface_get_material(s)
 			if src is StandardMaterial3D:
 				var d := (src as StandardMaterial3D).duplicate() as StandardMaterial3D
+				if (src as StandardMaterial3D).albedo_texture != null:
+					if pal == null:
+						pal = _chef_palette((src as StandardMaterial3D).albedo_texture, skin, "%d_%s" % [idx, skin.to_html(false)])
+					d.albedo_texture = pal
 				d.next_pass = outline_thin()
-				d.roughness = 0.8
+				d.roughness = 0.85
 				mesh_i.set_surface_override_material(s, d)
 	# stand-in nodes so the old rig code (menus, sync) still finds its named parts
 	var body := node(root, "body", Vector3(0, 0.46, 0))
@@ -662,21 +709,22 @@ static func _kay_chef(look: Dictionary) -> Node3D:
 	for nm in ["foot_l", "foot_r", "leg_l", "leg_r"]:
 		node(root, nm)
 	node(root, "held", Vector3(0, 1.95, 0))
-	# chef hat on the head bone, apron on the chest
+	# our clay hat on the head bone
 	var sk := model.find_child("Skeleton3D", true, false) as Skeleton3D
-	var hat_style := str(Data.HATS[clampi(int(look.get("hat", 0)), 0, Data.HATS.size() - 1)])
-	var hb := BoneAttachment3D.new()
-	hb.bone_name = "head"
-	sk.add_child(hb)
-	var hh := node(hb, "hat", Vector3(0, 0.56, 0.0))
-	hh.scale = Vector3.ONE * 1.9
-	_hat(hh, hat_style, _hex(Data.COLORS, int(look.get("hat_col", 0))))
-	var cb := BoneAttachment3D.new()
-	cb.bone_name = "chest"
-	sk.add_child(cb)
-	var ap_col := _hex(Data.COLORS, int(look.get("apron", 0)))
-	mi(cb, rbox(Vector3(0.5, 0.56, 0.1), 0.05), mat(ap_col, 0.65), Vector3(0, -0.14, 0.34), Vector3(6, 0, 0))
-	mi(cb, rbox(Vector3(0.24, 0.14, 0.04), 0.02), mat(ap_col, 0.65), Vector3(0, -0.3, 0.4))
+	var style := str(Data.HATS[clampi(int(look.get("hat", 0)), 0, Data.HATS.size() - 1)])
+	var hp := "res://assets/hat_%s.glb" % style
+	if ResourceLoader.exists(hp):
+		var hb := BoneAttachment3D.new()
+		hb.bone_name = "head"
+		sk.add_child(hb)
+		var hw := (load(hp) as PackedScene).instantiate() as Node3D
+		var hat_n := hw.get_node("hat") as Node3D
+		hw.remove_child(hat_n)
+		hw.free()
+		_clay_polish(hat_n, skin, Color(_hex(Data.COLORS, int(look.get("hat_col", 0)))))
+		hat_n.position = Vector3(0, 0.56, 0.0)
+		hat_n.scale = Vector3.ONE * 1.3
+		hb.add_child(hat_n)
 	var ap := AnimationPlayer.new()
 	ap.name = "anim"
 	root.add_child(ap)
