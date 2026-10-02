@@ -712,7 +712,9 @@ func _sync_customers(delta: float) -> void:
 		if blink and eyes == "eyes_open":
 			eyes = "eyes_closed"
 		var fk := eyes + mouth
-		if fk != e["face"]:
+		if n.has_meta("kay"):
+			Models.kay_play(n, "Hit_B" if st == "angry" else ("Idle_B" if st == "happy" else "Idle_A"), 1.0)
+		elif fk != e["face"]:
 			e["face"] = fk
 			_set_face(head, eyes, mouth)
 	for key in cust_nodes.keys():

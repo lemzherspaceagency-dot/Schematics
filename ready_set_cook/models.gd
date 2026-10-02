@@ -605,6 +605,7 @@ static func _clay_chef(look: Dictionary) -> Node3D:
 const USE_KAY := true    # the rigged KayKit chefs are in assets/chars; off because the procedural chibi chefs read better from above
 const CHAR_FILES := ["Knight", "Mage", "Ranger", "Rogue", "Rogue_Hooded"]
 const KAY_HIDE := ["Helmet", "HelmetVisor", "Cape", "Hat", "BearHat", "Quiver", "Mask"]
+const KAY_HIDE_CUST := ["Helmet", "HelmetVisor", "Cape", "Quiver", "Mask"]
 const KAY_SCALE := 0.63          # head centre ends up at y = 1.1 like the old procedural chef
 static var _anim_lib: AnimationLibrary
 
@@ -630,7 +631,7 @@ static var _pal_cache := {}
 
 
 # Re-paint a KayKit palette (8x4 swatches of vertical gradients) as a chef: whites, blacks, skin.
-static func _chef_palette(src: Texture2D, skin: Color, key: String) -> Texture2D:
+static func _chef_palette(src: Texture2D, skin: Color, key: String, cook: bool = true) -> Texture2D:
 	if _pal_cache.has(key):
 		return _pal_cache[key]
 	var img := src.get_image()
@@ -646,7 +647,10 @@ static func _chef_palette(src: Texture2D, skin: Color, key: String) -> Texture2D
 			var h := mid.h
 			var s := mid.s
 			var v := mid.v
-			if h > 0.0 and h < 0.1 and s > 0.15 and s < 0.62 and v > 0.62:
+			var is_skin: bool = cy == 0 and cx < 2 and h > 0.0 and h < 0.12 and s > 0.15 and v > 0.7
+			if not cook and not is_skin:
+				continue
+			if is_skin:
 				target = skin
 			elif v < 0.3:
 				target = Color("2a2a33")
@@ -654,7 +658,7 @@ static func _chef_palette(src: Texture2D, skin: Color, key: String) -> Texture2D
 				target = Color("f2f2f6")
 			elif s < 0.2:
 				target = Color("c3c7d3")
-			elif h > 0.0 and h < 0.1 and v < 0.62:
+			elif (h < 0.1 or h > 0.97) and s > 0.3 and v < 0.85:
 				target = Color("3b2a22")
 			for y in ch:
 				var o := img.get_pixel(cx * cw + cw / 2, cy * ch + y)
@@ -668,8 +672,28 @@ static func _chef_palette(src: Texture2D, skin: Color, key: String) -> Texture2D
 
 
 static func _kay_chef(look: Dictionary) -> Node3D:
-	var idx: int = int(look.get("char", 0)) % CHAR_FILES.size()
-	var path: String = "res://assets/chars/%s.glb" % CHAR_FILES[idx]
+	return _kay_build(str(CHAR_FILES[int(look.get("char", 0)) % CHAR_FILES.size()]), look, true)
+
+
+# customers: the same rigs in their own clothes (only skin repainted), no hat added
+const CUST_CHARS := ["Barbarian", "Mage", "Ranger", "Rogue", "Rogue_Hooded", "Knight"]
+
+
+static func _kay_customer(look: int, vip: bool) -> Node3D:
+	var lk := {"skin": 0, "hat": 0, "hat_col": 0}
+	var r := _kay_build(str(CUST_CHARS[look % CUST_CHARS.size()]), lk, false, Color(CUST_SKIN[look % 6]))
+	if r != null and vip:
+		var hb := BoneAttachment3D.new()
+		hb.bone_name = "head"
+		(r.get_node("model").find_child("Skeleton3D", true, false) as Skeleton3D).add_child(hb)
+		var crown := mi(hb, cyl(0.3, 0.34, 0.2), mat("ffd23f", 0.25, 0.7), Vector3(0, 0.95, 0))
+		crown.scale = Vector3.ONE
+	return r
+
+
+static func _kay_build(char_name: String, look: Dictionary, cook: bool, skin_override: Color = Color(0, 0, 0, 0)) -> Node3D:
+	var idx: int = CUST_CHARS.find(char_name) if not cook else CHAR_FILES.find(char_name)
+	var path: String = "res://assets/chars/%s.glb" % char_name
 	if not ResourceLoader.exists(path) or not ResourceLoader.exists("res://assets/chars/Rig_Medium_General.glb"):
 		return null
 	var root := Node3D.new()
@@ -678,20 +702,22 @@ static func _kay_chef(look: Dictionary) -> Node3D:
 	model.name = "model"
 	model.scale = Vector3.ONE * KAY_SCALE
 	root.add_child(model)
-	var skin := Color(_hex(Data.SKINS, int(look.get("skin", 0))))
+	var skin := Color(_hex(Data.SKINS, int(look.get("skin", 0)))) if cook else skin_override
 	var pal: Texture2D = null
 	for mi_ in model.find_children("*", "MeshInstance3D"):
 		var mesh_i := mi_ as MeshInstance3D
-		for h in KAY_HIDE:
+		for h in (KAY_HIDE if cook else KAY_HIDE_CUST):
 			if str(mesh_i.name).ends_with("_" + h):
 				mesh_i.visible = false
+		if not cook and "Leg" in str(mesh_i.name):
+			mesh_i.visible = false
 		for s in mesh_i.mesh.get_surface_count():
 			var src := mesh_i.mesh.surface_get_material(s)
 			if src is StandardMaterial3D:
 				var d := (src as StandardMaterial3D).duplicate() as StandardMaterial3D
 				if (src as StandardMaterial3D).albedo_texture != null:
 					if pal == null:
-						pal = _chef_palette((src as StandardMaterial3D).albedo_texture, skin, "%d_%s" % [idx, skin.to_html(false)])
+						pal = _chef_palette((src as StandardMaterial3D).albedo_texture, skin, "%s_%s_%s" % [char_name, skin.to_html(false), cook], cook)
 					d.albedo_texture = pal
 				d.next_pass = outline_thin()
 				d.roughness = 0.85
@@ -709,11 +735,14 @@ static func _kay_chef(look: Dictionary) -> Node3D:
 	for nm in ["foot_l", "foot_r", "leg_l", "leg_r"]:
 		node(root, nm)
 	node(root, "held", Vector3(0, 1.95, 0))
+	if not cook:
+		model.scale = Vector3.ONE * 0.58
+		model.position = Vector3(0, -0.12, 0)
 	# our clay hat on the head bone
 	var sk := model.find_child("Skeleton3D", true, false) as Skeleton3D
 	var style := str(Data.HATS[clampi(int(look.get("hat", 0)), 0, Data.HATS.size() - 1)])
 	var hp := "res://assets/hat_%s.glb" % style
-	if ResourceLoader.exists(hp):
+	if cook and ResourceLoader.exists(hp):
 		var hb := BoneAttachment3D.new()
 		hb.bone_name = "head"
 		sk.add_child(hb)
@@ -722,8 +751,8 @@ static func _kay_chef(look: Dictionary) -> Node3D:
 		hw.remove_child(hat_n)
 		hw.free()
 		_clay_polish(hat_n, skin, Color(_hex(Data.COLORS, int(look.get("hat_col", 0)))))
-		hat_n.position = Vector3(0, 0.56, 0.0)
-		hat_n.scale = Vector3.ONE * 1.3
+		hat_n.position = Vector3(0, 0.62, 0.0)
+		hat_n.scale = Vector3.ONE * 1.25
 		hb.add_child(hat_n)
 	var ap := AnimationPlayer.new()
 	ap.name = "anim"
@@ -859,7 +888,9 @@ const CUST_SHIRT := ["ef476f", "06d6a0", "118ab2", "ffd166", "9b5de5", "ff9f1c"]
 
 static func customer(look: int, vip: bool) -> Node3D:
 	_clean = true
-	var r := _customer(look, vip)
+	var r: Node3D = _kay_customer(look, vip) if USE_KAY and ResourceLoader.exists("res://assets/chars/Rig_Medium_General.glb") else null
+	if r == null:
+		r = _customer(look, vip)
 	_clean = false
 	return r
 

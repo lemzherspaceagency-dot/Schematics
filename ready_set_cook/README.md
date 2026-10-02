@@ -110,3 +110,5 @@ Chefs are modelled in Blender as lumpy clay figures (`blender_src/chef_assets.py
 
 ## v7.0 chefs: KayKit, restyled
 Chefs are the rigged KayKit Adventurers (Knight, Mage, Ranger, Rogue, Hooded Rogue) with their animations. At load the game repaints each character's colour palette (`Models._chef_palette`): whites, blacks and the chosen skin tone, so they read as cooks. Weapons/helmets/capes are hidden and our pleated Blender hats (`assets/hat_*.glb`) sit on the head bone. The old clay and procedural chefs remain as fallbacks.
+
+v7.1: customers are KayKit characters too (own clothes, skin repainted, seated lower), and the chef palette repaint turns leather/tan clothing into whites and dark browns.
