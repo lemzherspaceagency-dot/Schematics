@@ -107,7 +107,7 @@ const UPGRADES := [
 ]
 
 # ---- chef customisation ----
-const SKINS := ["ffd5b5", "f1c27d", "d9a066", "a8714a", "7a4a2d", "ffe0c8", "a7e07f", "9bc4f2"]
+const SKINS := ["ffd5b5", "f1c27d", "d9a066", "a8714a", "7a4a2d", "f6c9a8", "c98a62", "5a3a24"]
 const COLORS := ["ffffff", "ef476f", "ff9f1c", "ffd166", "06d6a0", "2ec4b6", "4c8bf5", "9b5de5", "ff8fab", "4a4a58", "8a5a3b"]
 const COLOR_NAMES := ["White", "Red", "Orange", "Sunny", "Green", "Teal", "Blue", "Purple", "Pink", "Charcoal", "Brown"]
 const HATS := ["toque", "cap", "beanie", "bandana", "tall", "hair"]
