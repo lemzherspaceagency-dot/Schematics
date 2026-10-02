@@ -606,7 +606,7 @@ func _sync_chefs(delta: float) -> void:
 		var hat_n := head.get_node_or_null("hat") as Node3D
 		if hat_n != null:
 			hat_n.rotation.x = 0.14
-			hat_n.position = Vector3(0, 0.06, -0.02)
+			hat_n.position = Vector3(0, 0.07, -0.03)
 		# face
 		var blink := fmod(t + ch.id * 0.9, 3.6) > 3.45
 		var face_key := "%s_%s" % [blink, ch.bump > 0.2]

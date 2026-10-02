@@ -540,11 +540,65 @@ static func _hex(list: Array, idx: int) -> String:
 # A chef. Children worth animating: body, head, arm_l, arm_r, foot_l, foot_r, held (anchor above the head)
 static func chef(look: Dictionary) -> Node3D:
 	_clean = true
-	var r: Node3D = _kay_chef(look) if USE_KAY else null
+	var r: Node3D = _clay_chef(look)
+	if r == null and USE_KAY:
+		r = _kay_chef(look)
 	if r == null:
 		r = _chef(look)
 	_clean = false
 	return r
+
+
+# ---- clay-style chefs modelled in Blender (assets/chef_base.glb + hat_*.glb, see blender_src/chef_assets.py) ----
+static func _clay_polish(n: Node, skin: Color, hat: Color) -> void:
+	if n is MeshInstance3D:
+		var mi_ := n as MeshInstance3D
+		for i in mi_.mesh.get_surface_count():
+			var src := mi_.mesh.surface_get_material(i)
+			if src is StandardMaterial3D:
+				var d := (src as StandardMaterial3D).duplicate() as StandardMaterial3D
+				var nm := str(src.resource_name)
+				if nm == "skin":
+					d.albedo_color = skin
+				elif nm == "hatcol":
+					d.albedo_color = hat
+				d.roughness = 0.85
+				d.metallic = 0.0
+				_paint(d)
+				d.next_pass = outline_thin()
+				mi_.set_surface_override_material(i, d)
+	for c in n.get_children():
+		_clay_polish(c, skin, hat)
+
+
+static func _clay_chef(look: Dictionary) -> Node3D:
+	if not ResourceLoader.exists("res://assets/chef_base.glb"):
+		return null
+	var wrap := (load("res://assets/chef_base.glb") as PackedScene).instantiate() as Node3D
+	var root := wrap.get_node("chef") as Node3D
+	wrap.remove_child(root)
+	wrap.free()
+	var skin := Color(_hex(Data.SKINS, int(look.get("skin", 0))))
+	var hat_col := Color(_hex(Data.COLORS, int(look.get("hat_col", 0))))
+	_clay_polish(root, skin, hat_col)
+	var head := root.get_node("head") as Node3D
+	decal(head, "eyes_open", 0.56, Vector3(0, 0.06, 0.378), "eyes")
+	decal(head, "mouth_smile", 0.19, Vector3(0, -0.15, 0.352), "mouth")
+	var gear := node(head, "gear", Vector3(0, 0.0, 0.06))
+	gear.scale = Vector3.ONE * 1.25
+	_accessory(gear, str(Data.ACCS[clampi(int(look.get("acc", 0)), 0, Data.ACCS.size() - 1)]))
+	var style := str(Data.HATS[clampi(int(look.get("hat", 0)), 0, Data.HATS.size() - 1)])
+	var hp := "res://assets/hat_%s.glb" % style
+	if ResourceLoader.exists(hp):
+		var hw := (load(hp) as PackedScene).instantiate() as Node3D
+		var h := hw.get_node("hat") as Node3D
+		hw.remove_child(h)
+		hw.free()
+		_clay_polish(h, skin, hat_col)
+		h.position = Vector3(0, 0.07, -0.03)
+		head.add_child(h)
+	node(root, "held", Vector3(0, 1.95, 0))
+	return root
 
 
 # ---- rigged chefs: KayKit Adventurers (CC0) + the Rig_Medium animation set ----
