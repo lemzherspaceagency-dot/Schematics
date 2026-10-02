@@ -970,7 +970,7 @@ func _draw_customize() -> void:
 	_rr(Rect2(206, 118, 300, 536), Color("bfe3f7"), 14, C_OUTLINE, 3)
 	_ctext("YOU", Vector2(356, 168), 42, Color.WHITE)
 	_ell(Vector2(356, 560), 110, 20, Color(0, 0, 0, 0.25))
-	_stage_chef("custom", look, Vector2(356, 575), 1.25, "turn", "smile")
+	_stage_chef("custom", look, Vector2(356, 575), 1.05, "turn", "smile")
 	_button(Rect2(256, 586, 200, 50), "RANDOMIZE", "cust_random", Color("48b84f"), 22)
 	_ctext(pname, Vector2(356, 214), 26, Color("123a5c"))
 	# hats

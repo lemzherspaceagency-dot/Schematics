@@ -582,8 +582,8 @@ static func _clay_chef(look: Dictionary) -> Node3D:
 	var hat_col := Color(_hex(Data.COLORS, int(look.get("hat_col", 0))))
 	_clay_polish(root, skin, hat_col)
 	var head := root.get_node("head") as Node3D
-	decal(head, "eyes_open", 0.56, Vector3(0, 0.06, 0.378), "eyes")
-	decal(head, "mouth_smile", 0.19, Vector3(0, -0.15, 0.352), "mouth")
+	decal(head, "eyes_open", 0.56, Vector3(0, 0.06, 0.4), "eyes")
+	decal(head, "mouth_smile", 0.19, Vector3(0, -0.2, 0.385), "mouth")
 	var gear := node(head, "gear", Vector3(0, 0.0, 0.06))
 	gear.scale = Vector3.ONE * 1.25
 	_accessory(gear, str(Data.ACCS[clampi(int(look.get("acc", 0)), 0, Data.ACCS.size() - 1)]))
@@ -595,7 +595,7 @@ static func _clay_chef(look: Dictionary) -> Node3D:
 		hw.remove_child(h)
 		hw.free()
 		_clay_polish(h, skin, hat_col)
-		h.position = Vector3(0, 0.07, -0.03)
+		h.position = Vector3(0, -0.03, -0.02)
 		head.add_child(h)
 	node(root, "held", Vector3(0, 1.95, 0))
 	return root

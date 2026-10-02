@@ -133,7 +133,7 @@ func _place(it: Dictionary, r: Dictionary) -> void:
 	n.scale = Vector3.ONE * sc
 	if bust:
 		# the head (y = 1.1) sits on the requested point
-		n.position = wp - Vector3(0, 1.1 * sc, 0) + Vector3(0, bounce * sc * 0.5 - 0.22 * sc, 0)
+		n.position = wp - Vector3(0, 1.24 * sc, 0) + Vector3(0, bounce * sc * 0.5 - 0.22 * sc, 0)
 		n.rotation.y = yaw * 0.7
 	else:
 		n.position = wp + Vector3(0, bounce * sc, 0)
