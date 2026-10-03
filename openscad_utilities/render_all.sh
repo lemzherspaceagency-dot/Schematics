@@ -13,7 +13,7 @@ for n in "${names[@]}"; do
   echo "== $n"
   openscad -o "stl/$n.stl" "models/$n.scad"
   if command -v xvfb-run >/dev/null; then
-    xvfb-run -a openscad -o "png/$n.png" --imgsize=600,450 --viewall --autocenter \
+    xvfb-run -a openscad --render -o "png/$n.png" --imgsize=600,450 --viewall --autocenter \
       --colorscheme=Tomorrow --camera=0,0,0,55,0,25,0 "models/$n.scad" >/dev/null 2>&1 || true
   fi
 done

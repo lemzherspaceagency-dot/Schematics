@@ -1,6 +1,6 @@
 # Everyday OpenSCAD Prints
 
-Twelve parametric, genuinely useful things to 3D-print for any home.
+Twenty-four parametric, genuinely useful things to 3D-print for any home.
 Every model is a single self-contained `.scad` file in `models/`, with
 ready-to-print default STLs in `stl/` and previews in `png/`.
 
@@ -21,10 +21,22 @@ orient it and which material works best.
 | [`furniture_riser`](models/furniture_riser.scad) | Bed/sofa/table riser or leg cup | leg shape and size, lift height |
 | [`tube_squeezer`](models/tube_squeezer.scad) | Gets the last bit out of toothpaste and other tubes | tube width |
 | [`battery_organizer`](models/battery_organizer.scad) | Tray for AAA/AA/C/D/18650/9V, optional wall keyholes | battery type, rows × columns |
+| [`headphone_hook`](models/headphone_hook.scad) | Under-desk headphone hanger, screws reachable from below | drop, arm length |
+| [`cord_winder`](models/cord_winder.scad) | Tangle-free wrap for earbuds and cables, with plug slit | length, width |
+| [`drawer_pull`](models/drawer_pull.scad) | Replacement drawer/cabinet handle | hole spacing (64/96/128…), standoff |
+| [`cable_tie_mount`](models/cable_tie_mount.scad) | Screw-down zip-tie anchors | tie size, count |
+| [`card_holder`](models/card_holder.scad) | Stand for SD cards, microSD cards and USB sticks | how many of each |
+| [`plant_pot`](models/plant_pot.scad) | Tapered pot with drainage, feet and drip saucer | size, taper, round/square/hex |
+| [`soap_dish`](models/soap_dish.scad) | Self-draining soap dish / sponge holder | size |
+| [`jar_opener`](models/jar_opener.scad) | Stepped, toothed opener for 30–90 mm lids; can be screwed under a cupboard | size range, handle |
+| [`bit_holder`](models/bit_holder.scad) | Screwdriver-bit grid or labelled Allen-key stand | mode, rows/cols, key sizes |
+| [`corner_protector`](models/corner_protector.scad) | Soft child-safety cap for sharp table corners (TPU) | table thickness |
+| [`spacer`](models/spacer.scad) | Washers, spacers and standoffs in any size | hole, outer diameter, height |
+| [`page_holder`](models/page_holder.scad) | Thumb ring that holds a book open one-handed | thumb size, span |
 
 ![All twelve models](png/overview.png)
 
-Row by row: bag clip, battery organizer, cable clip, desk grommet · door wedge, furniture riser, key turner, knob · organizer bin, phone stand, tube squeezer, wall hook.
+Previews are in alphabetical order, left to right and top to bottom.
 
 ## Using them
 
@@ -64,6 +76,10 @@ openscad -o aaa_tray.stl -D 'battery="AAA"' -D cols=8 models/battery_organizer.s
   hex-head bolt drops in from the top and the thread sticks out the bottom.
 - **Bag clip:** fold the bag over the rod (tab end first), then slide the
   channel on from the rod's *free* end.
+- **TPU** (flexible) is the best choice for the corner protector, and it also
+  makes the jar opener grip better.
+- **Drawer pull:** M4 machine screws self-tap into the default 3.4 mm holes;
+  for frequent use, set `hole_d` to fit M4 heat-set inserts instead.
 - **Furniture riser:** prints upright so the weight squeezes the layers
   together. Use 30 %+ infill for beds and sofas.
 
