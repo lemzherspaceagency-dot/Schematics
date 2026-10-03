@@ -22,7 +22,9 @@ orient it and which material works best.
 | [`tube_squeezer`](models/tube_squeezer.scad) | Gets the last bit out of toothpaste and other tubes | tube width |
 | [`battery_organizer`](models/battery_organizer.scad) | Tray for AAA/AA/C/D/18650/9V, optional wall keyholes | battery type, rows × columns |
 
-![previews](png/knob.png)
+![All twelve models](png/overview.png)
+
+Row by row: bag clip, battery organizer, cable clip, desk grommet · door wedge, furniture riser, key turner, knob · organizer bin, phone stand, tube squeezer, wall hook.
 
 ## Using them
 
